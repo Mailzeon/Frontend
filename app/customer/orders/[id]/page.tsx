@@ -15,7 +15,6 @@ import Link from 'next/link';
 
 export default function CustomerOrderDetail() {
   const { id } = useParams<{ id: string }>();
-  const router  = useRouter();
   const [order, setOrder]         = useState<Order | null>(null);
   const [loading, setLoading]     = useState(true);
   const [acting, setActing]       = useState(false);

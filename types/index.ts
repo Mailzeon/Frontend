@@ -14,20 +14,23 @@ export type OrderStatus =
   | 'cancelled';
 
 export interface Order {
-  _id:                    string;
-  customerId:             string;
-  workerId?:              string;
-  serviceName:            string;
-  amount:                 number;
-  workerEarning:          number;
-  status:                 OrderStatus;
-  acceptedAt?:            string;
-  timerExpiresAt?:        string;
+  _id:                     string;
+  customerId:              string;
+  workerId?:               string;
+  serviceName:             string;
+  amount:                  number;
+  workerEarning:           number;
+  status:                  OrderStatus;
+  // FIX: verificationCode was missing from this interface, which forced
+  // `(order as any).verificationCode` casts throughout the frontend.
+  verificationCode?:       string;
+  acceptedAt?:             string;
+  timerExpiresAt?:         string;
   credentialsSubmittedAt?: string;
-  autoCompleteAt?:        string;
-  completedAt?:           string;
-  createdAt:              string;
-  updatedAt:              string;
+  autoCompleteAt?:         string;
+  completedAt?:            string;
+  createdAt:               string;
+  updatedAt:               string;
 }
 
 // ─── Wallet ───────────────────────────────────────────────────────────────────
@@ -85,10 +88,15 @@ export interface WithdrawRequest {
 }
 
 // ─── Dispute ──────────────────────────────────────────────────────────────────
-export type DisputeReason  = 'wrong_password' | 'unable_to_login' | 'account_issue' | 'other';
-export type DisputeStatus  = 'open' | 'resolved' | 'rejected';
+export type DisputeReason =
+  | 'wrong_password'
+  | 'unable_to_login'
+  | 'account_issue'
+  | 'other';
 
-// ─── Generic API response shape ───────────────────────────────────────────────
+export type DisputeStatus = 'open' | 'resolved' | 'rejected';
+
+// ─── Generic API response ─────────────────────────────────────────────────────
 export interface ApiResponse<T = unknown> {
   success: boolean;
   message: string;

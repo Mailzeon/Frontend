@@ -20,6 +20,9 @@ export default function CustomerDashboard() {
   const [creating, setCreating] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [service, setService]   = useState('');
+  // FIX: was hardcoded to 50 everywhere below — now fetched from the live
+  // platform setting so it always matches whatever the admin configured.
+  const [orderPrice, setOrderPrice] = useState<number | null>(null);
 
   const fetch = async () => {
     try {
@@ -29,7 +32,12 @@ export default function CustomerDashboard() {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { fetch(); }, []);
+  useEffect(() => {
+    fetch();
+    api.get('/settings/public')
+      .then(({ data }) => { if (data.success) setOrderPrice(data.data.orderPrice); })
+      .catch(() => setOrderPrice(50)); // Safe fallback if the call fails
+  }, []);
 
   const stats = {
     total:     orders.length,
@@ -53,6 +61,8 @@ export default function CustomerDashboard() {
     finally { setCreating(false); }
   };
 
+  const priceLabel = orderPrice !== null ? formatCurrency(orderPrice) : '...';
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -61,7 +71,7 @@ export default function CustomerDashboard() {
           <p className="text-gray-400 text-sm mt-0.5">Track your orders and activity</p>
         </div>
         <Button onClick={() => setShowModal(true)}>
-          <Plus className="w-4 h-4 mr-2" /> New Order — ₹50
+          <Plus className="w-4 h-4 mr-2" /> New Order — {priceLabel}
         </Button>
       </div>
 
@@ -114,7 +124,7 @@ export default function CustomerDashboard() {
           </DialogHeader>
           <form onSubmit={createOrder} className="space-y-4">
             <div className="p-4 rounded-xl bg-purple-500/5 border border-purple-500/20">
-              <p className="text-sm text-gray-300">You will be charged <span className="text-purple-400 font-bold">₹50</span> for this order. A worker will complete it and you will receive credentials.</p>
+              <p className="text-sm text-gray-300">You will be charged <span className="text-purple-400 font-bold">{priceLabel}</span> for this order. A worker will complete it and you will receive credentials.</p>
             </div>
             <div className="space-y-1.5">
               <Label>Service name / description</Label>
@@ -122,7 +132,7 @@ export default function CustomerDashboard() {
             </div>
             <div className="flex gap-3 justify-end">
               <Button type="button" variant="outline" onClick={() => setShowModal(false)}>Cancel</Button>
-              <Button type="submit" loading={creating}>Place Order — ₹50</Button>
+              <Button type="submit" loading={creating}>Place Order — {priceLabel}</Button>
             </div>
           </form>
         </DialogContent>

@@ -15,6 +15,9 @@ export default function WorkerMarketplace() {
   const [orders, setOrders]       = useState<Order[]>([]);
   const [loading, setLoading]     = useState(true);
   const [accepting, setAccepting] = useState<string | null>(null);
+  // FIX: was hardcoded formatCurrency(20) — now reflects the live
+  // admin-configured worker earning amount.
+  const [workerEarning, setWorkerEarning] = useState<number | null>(null);
 
   const fetchOrders = useCallback(async () => {
     try {
@@ -26,9 +29,12 @@ export default function WorkerMarketplace() {
 
   useEffect(() => {
     fetchOrders();
+    api.get('/settings/public')
+      .then(({ data }) => { if (data.success) setWorkerEarning(data.data.workerEarning); })
+      .catch(() => setWorkerEarning(20));
+
     const socket = getSocket();
     if (!socket) return;
-    // Real-time: new order added OR one was taken (refresh list)
     const onNew = () => { fetchOrders(); toast.info('New order available!'); };
     socket.on(SOCKET_EVENTS.NEW_ORDER, onNew);
     return () => { socket.off(SOCKET_EVENTS.NEW_ORDER, onNew); };
@@ -47,9 +53,11 @@ export default function WorkerMarketplace() {
       }
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Could not accept order.');
-      fetchOrders(); // Refresh — it may have been taken
+      fetchOrders();
     } finally { setAccepting(null); }
   };
+
+  const earningLabel = workerEarning !== null ? formatCurrency(workerEarning) : '...';
 
   return (
     <div className="space-y-6">
@@ -57,7 +65,7 @@ export default function WorkerMarketplace() {
         <div>
           <h1 className="text-2xl font-bold text-white">Marketplace</h1>
           <p className="text-gray-400 text-sm mt-0.5">
-            {orders.length} order{orders.length !== 1 ? 's' : ''} available · Earn {formatCurrency(20)} per order
+            {orders.length} order{orders.length !== 1 ? 's' : ''} available · Earn {earningLabel} per order
           </p>
         </div>
         <Button variant="outline" onClick={fetchOrders}>Refresh</Button>

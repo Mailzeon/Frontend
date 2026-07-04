@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Eye, EyeOff, Zap, User, Briefcase } from 'lucide-react';
@@ -10,7 +10,7 @@ import { toast } from '@/components/ui/toast';
 import { useAuthStore } from '@/store/authStore';
 import { api } from '@/lib/api';
 import { initSocket } from '@/lib/socket';
-import { cn } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 
 export default function RegisterPage() {
   const router  = useRouter();
@@ -21,6 +21,16 @@ export default function RegisterPage() {
   const [role, setRole]         = useState<'customer' | 'worker'>('customer');
   const [show, setShow]         = useState(false);
   const [loading, setLoading]   = useState(false);
+  // FIX: was hardcoded "₹20" in the worker role card — now reflects the
+  // live admin-configured worker earning. This page is public (no login
+  // yet), so it calls the unauthenticated /settings/public endpoint.
+  const [workerEarning, setWorkerEarning] = useState<number | null>(null);
+
+  useEffect(() => {
+    api.get('/settings/public')
+      .then(({ data }) => { if (data.success) setWorkerEarning(data.data.workerEarning); })
+      .catch(() => setWorkerEarning(20));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,6 +66,8 @@ export default function RegisterPage() {
     </button>
   );
 
+  const workerEarnLabel = workerEarning !== null ? formatCurrency(workerEarning) : '₹20';
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0B1120] p-4">
       <div className="w-full max-w-md">
@@ -74,7 +86,7 @@ export default function RegisterPage() {
               <Label>I want to</Label>
               <div className="flex gap-3">
                 {roleCard('customer', User, 'Buy Services', 'Place orders & get results')}
-                {roleCard('worker', Briefcase, 'Work & Earn', 'Complete orders & earn ₹20')}
+                {roleCard('worker', Briefcase, 'Work & Earn', `Complete orders & earn ${workerEarnLabel}`)}
               </div>
             </div>
 

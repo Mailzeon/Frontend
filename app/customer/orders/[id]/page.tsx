@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { useParams }        from 'next/navigation';
-import { ArrowLeft, Clock, CheckCircle, AlertTriangle, RefreshCw, Star } from 'lucide-react';
+import { ArrowLeft, Clock, CheckCircle, AlertTriangle, RefreshCw, Star, XCircle } from 'lucide-react';
 import { Button }           from '@/components/ui/button';
 import { OrderStatusBadge } from '@/components/shared/OrderStatusBadge';
 import { Skeleton }         from '@/components/ui/skeleton';
@@ -16,7 +16,6 @@ import { Order, DisputeReason } from '@/types';
 import { getSocket, SOCKET_EVENTS } from '@/lib/socket';
 import Link from 'next/link';
 
-// Human-readable dispute reason labels
 const DISPUTE_REASONS: { value: DisputeReason; label: string }[] = [
   { value: 'wrong_password',  label: 'Wrong password — cannot log in' },
   { value: 'unable_to_login', label: 'Unable to login for another reason' },
@@ -32,12 +31,13 @@ export default function CustomerOrderDetail() {
   const [acting,       setActing]       = useState(false);
   const [showDispute,  setShowDispute]  = useState(false);
   const [showRating,   setShowRating]   = useState(false);
+  const [showCancel,   setShowCancel]   = useState(false);
   const [rating,       setRating]       = useState(0);
   const [rated,        setRated]        = useState(false);
-  // Dispute form state
   const [disputeReason, setDisputeReason] = useState<DisputeReason>('wrong_password');
   const [disputeDesc,   setDisputeDesc]   = useState('');
   const [submittingDispute, setSubmittingDispute] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
   const fetchOrder = useCallback(async () => {
     try {
@@ -69,7 +69,6 @@ export default function CustomerOrderDetail() {
     };
   }, [fetchOrder]);
 
-  // Generic action (no body needed)
   const act = async (endpoint: string, successMsg: string) => {
     setActing(true);
     try {
@@ -83,7 +82,24 @@ export default function CustomerOrderDetail() {
     }
   };
 
-  // FIX: Dispute now sends reason + description, creates an actual Dispute document
+  // New: cancel a pending order (before any worker has accepted it)
+  const cancelOrder = async () => {
+    setCancelling(true);
+    try {
+      const { data } = await api.patch(`/orders/${id}/cancel`);
+      if (data.success) {
+        toast.success('Order cancelled.');
+        setShowCancel(false);
+        fetchOrder();
+      }
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      toast.error(msg || 'Failed to cancel order.');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   const submitDispute = async () => {
     setSubmittingDispute(true);
     try {
@@ -118,7 +134,6 @@ export default function CustomerOrderDetail() {
     }
   };
 
-  // ── Loading / not found ───────────────────────────────────────────────────
   if (loading) return (
     <div className="max-w-2xl space-y-4">
       <Skeleton className="h-8 w-48" />
@@ -128,13 +143,13 @@ export default function CustomerOrderDetail() {
   );
   if (!order) return <div className="text-gray-400 p-4">Order not found.</div>;
 
-  // ── Status flags ──────────────────────────────────────────────────────────
   const isPending   = order.status === 'pending';
   const isAccepted  = order.status === 'accepted';
   const isCreds     = order.status === 'credentials_submitted';
   const isVerif     = order.status === 'verification_pending';
   const isCompleted = order.status === 'completed';
   const isReview    = order.status === 'under_review';
+  const isCancelled = order.status === 'cancelled';
 
   return (
     <div className="max-w-2xl space-y-5">
@@ -176,18 +191,21 @@ export default function CustomerOrderDetail() {
         )}
       </div>
 
-      {/* ── Pending ── */}
+      {/* Pending — with cancel option */}
       {isPending && (
-        <div className="glass-card p-6 text-center space-y-3">
+        <div className="glass-card p-6 text-center space-y-4">
           <Clock className="w-10 h-10 text-yellow-400 mx-auto animate-pulse-soft" />
           <p className="font-semibold text-white">Waiting for a worker</p>
           <p className="text-sm text-gray-400">
             Your order is live in the marketplace. A worker will accept it shortly.
           </p>
+          <Button variant="outline" onClick={() => setShowCancel(true)}>
+            <XCircle className="w-4 h-4 mr-2" /> Cancel Order
+          </Button>
         </div>
       )}
 
-      {/* ── Accepted ── */}
+      {/* Accepted */}
       {isAccepted && (
         <div className="glass-card p-6 text-center space-y-3">
           <div className="w-10 h-10 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center mx-auto">
@@ -200,14 +218,13 @@ export default function CustomerOrderDetail() {
         </div>
       )}
 
-      {/* ── Credentials submitted / Verification pending ── */}
+      {/* Credentials submitted / Verification pending */}
       {(isCreds || isVerif) && (
         <div className="glass-card p-6 space-y-5">
           <p className="font-semibold text-white text-center">
             Credentials received. Were you able to log in?
           </p>
 
-          {/* Show verification code if worker sent one */}
           {isVerif && order.verificationCode && (
             <div className="p-4 rounded-xl bg-green-500/5 border border-green-500/20 text-center">
               <p className="text-xs text-gray-500 mb-1">Verification Code</p>
@@ -217,7 +234,6 @@ export default function CustomerOrderDetail() {
             </div>
           )}
 
-          {/* Waiting for worker to send code */}
           {isVerif && !order.verificationCode && (
             <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/20 text-center">
               <p className="text-sm text-blue-400 animate-pulse-soft">
@@ -227,7 +243,6 @@ export default function CustomerOrderDetail() {
           )}
 
           <div className="grid grid-cols-1 gap-3">
-            {/* Confirm success */}
             <Button
               variant="success"
               onClick={() => act('confirm', 'Order confirmed! Worker earnings released.')}
@@ -237,7 +252,6 @@ export default function CustomerOrderDetail() {
               Logged In Successfully ✓
             </Button>
 
-            {/* Request verification code (only from credentials_submitted) */}
             {isCreds && (
               <Button
                 variant="outline"
@@ -248,7 +262,6 @@ export default function CustomerOrderDetail() {
               </Button>
             )}
 
-            {/* Request new code (only when code was already sent) */}
             {isVerif && order.verificationCode && (
               <Button
                 variant="outline"
@@ -260,7 +273,6 @@ export default function CustomerOrderDetail() {
               </Button>
             )}
 
-            {/* Report problem */}
             <Button
               variant="destructive"
               onClick={() => setShowDispute(true)}
@@ -272,7 +284,7 @@ export default function CustomerOrderDetail() {
         </div>
       )}
 
-      {/* ── Completed ── */}
+      {/* Completed */}
       {isCompleted && (
         <div className="glass-card p-6 text-center space-y-4">
           <CheckCircle className="w-12 h-12 text-green-400 mx-auto" />
@@ -288,7 +300,7 @@ export default function CustomerOrderDetail() {
         </div>
       )}
 
-      {/* ── Under Review ── */}
+      {/* Under Review */}
       {isReview && (
         <div className="glass-card p-6 text-center space-y-3 border border-red-500/20">
           <AlertTriangle className="w-10 h-10 text-red-400 mx-auto" />
@@ -299,7 +311,34 @@ export default function CustomerOrderDetail() {
         </div>
       )}
 
-      {/* ── Dispute Modal — FIX: now includes reason dropdown ── */}
+      {/* Cancelled */}
+      {isCancelled && (
+        <div className="glass-card p-6 text-center space-y-3">
+          <XCircle className="w-10 h-10 text-gray-500 mx-auto" />
+          <p className="font-semibold text-white">Order Cancelled</p>
+          <p className="text-sm text-gray-400">This order was cancelled.</p>
+        </div>
+      )}
+
+      {/* Cancel confirm modal */}
+      <Dialog open={showCancel} onOpenChange={setShowCancel}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Cancel Order</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-gray-400">
+              Are you sure you want to cancel this order? This cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={() => setShowCancel(false)}>Keep Order</Button>
+              <Button variant="destructive" loading={cancelling} onClick={cancelOrder}>
+                Yes, Cancel Order
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dispute Modal */}
       <Dialog open={showDispute} onOpenChange={setShowDispute}>
         <DialogContent>
           <DialogHeader>
@@ -354,7 +393,7 @@ export default function CustomerOrderDetail() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Rating Modal ── */}
+      {/* Rating Modal */}
       <Dialog open={showRating} onOpenChange={setShowRating}>
         <DialogContent>
           <DialogHeader><DialogTitle>Rate this Worker</DialogTitle></DialogHeader>

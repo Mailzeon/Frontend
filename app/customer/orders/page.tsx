@@ -19,6 +19,8 @@ export default function CustomerOrdersPage() {
   const [showModal, setShowModal] = useState(false);
   const [service, setService]   = useState('');
   const [creating, setCreating] = useState(false);
+  // FIX: was hardcoded ₹50 — now reflects the live admin-configured price.
+  const [orderPrice, setOrderPrice] = useState<number | null>(null);
 
   const fetchOrders = async () => {
     try {
@@ -28,7 +30,12 @@ export default function CustomerOrdersPage() {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchOrders(); }, []);
+  useEffect(() => {
+    fetchOrders();
+    api.get('/settings/public')
+      .then(({ data }) => { if (data.success) setOrderPrice(data.data.orderPrice); })
+      .catch(() => setOrderPrice(50));
+  }, []);
 
   const createOrder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,6 +52,8 @@ export default function CustomerOrdersPage() {
     finally { setCreating(false); }
   };
 
+  const priceLabel = orderPrice !== null ? formatCurrency(orderPrice) : '...';
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -53,7 +62,7 @@ export default function CustomerOrdersPage() {
           <p className="text-gray-400 text-sm mt-0.5">{orders.length} order{orders.length !== 1 ? 's' : ''} total</p>
         </div>
         <Button onClick={() => setShowModal(true)}>
-          <Plus className="w-4 h-4 mr-2" /> New Order — ₹50
+          <Plus className="w-4 h-4 mr-2" /> New Order — {priceLabel}
         </Button>
       </div>
 
@@ -99,7 +108,7 @@ export default function CustomerOrdersPage() {
           <DialogHeader><DialogTitle>Place New Order</DialogTitle></DialogHeader>
           <form onSubmit={createOrder} className="space-y-4">
             <div className="p-4 rounded-xl bg-purple-500/5 border border-purple-500/20 text-sm text-gray-300">
-              You will be charged <span className="text-purple-400 font-bold">₹50</span>. A worker will complete your order.
+              You will be charged <span className="text-purple-400 font-bold">{priceLabel}</span>. A worker will complete your order.
             </div>
             <div className="space-y-1.5">
               <Label>Service description</Label>
@@ -108,7 +117,7 @@ export default function CustomerOrdersPage() {
             </div>
             <div className="flex gap-3 justify-end">
               <Button type="button" variant="outline" onClick={() => setShowModal(false)}>Cancel</Button>
-              <Button type="submit" loading={creating}>Place Order — ₹50</Button>
+              <Button type="submit" loading={creating}>Place Order — {priceLabel}</Button>
             </div>
           </form>
         </DialogContent>

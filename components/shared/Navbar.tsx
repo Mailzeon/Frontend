@@ -1,9 +1,9 @@
 'use client';
 import { useState } from 'react';
-import { Bell, X, CheckCheck } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Bell, X, CheckCheck, Menu } from 'lucide-react';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useSocket } from '@/hooks/useSocket';
+import { useUIStore } from '@/store/uiStore';
 import { timeAgo, cn } from '@/lib/utils';
 
 interface NavbarProps { title: string; }
@@ -12,11 +12,20 @@ export function Navbar({ title }: NavbarProps) {
   useSocket(); // Keep socket alive throughout session
   const [open, setOpen] = useState(false);
   const { notifications, unreadCount, handleMarkAsRead, handleMarkAllAsRead } = useNotifications();
+  const { toggleMobileSidebar } = useUIStore();
 
   return (
     <>
-      <header className="h-16 bg-[#111827]/80 backdrop-blur-sm border-b border-[#374151] flex items-center px-6 gap-4 sticky top-0 z-20">
-        <h1 className="font-semibold text-white text-lg flex-1">{title}</h1>
+      <header className="h-16 bg-[#111827]/80 backdrop-blur-sm border-b border-[#374151] flex items-center px-4 md:px-6 gap-3 md:gap-4 sticky top-0 z-20">
+        {/* Mobile hamburger — hidden on desktop since sidebar is always visible there */}
+        <button
+          onClick={toggleMobileSidebar}
+          className="md:hidden p-2 -ml-2 rounded-xl text-gray-400 hover:text-white hover:bg-[#374151] transition-colors"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+
+        <h1 className="font-semibold text-white text-base md:text-lg flex-1 truncate">{title}</h1>
 
         {/* Notification bell */}
         <button onClick={() => setOpen(true)} className="relative p-2 rounded-xl text-gray-400 hover:text-white hover:bg-[#374151] transition-colors">
@@ -33,7 +42,7 @@ export function Navbar({ title }: NavbarProps) {
       {open && (
         <div className="fixed inset-0 z-40 flex justify-end">
           <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
-          <aside className="relative w-80 h-full bg-[#111827] border-l border-[#374151] flex flex-col animate-slide-in">
+          <aside className="relative w-[85vw] max-w-80 h-full bg-[#111827] border-l border-[#374151] flex flex-col animate-slide-in">
             <div className="flex items-center justify-between p-4 border-b border-[#374151]">
               <h2 className="font-semibold text-white">Notifications</h2>
               <div className="flex items-center gap-1">

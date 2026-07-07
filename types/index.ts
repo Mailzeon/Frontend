@@ -21,8 +21,10 @@ export interface Order {
   amount:                  number;
   workerEarning:           number;
   status:                  OrderStatus;
-  // FIX: verificationCode was missing from this interface, which forced
-  // `(order as any).verificationCode` casts throughout the frontend.
+  // NEW: the email address the customer requested be created for this
+  // order. Optional because orders created before this feature existed
+  // won't have it.
+  requestedEmail?:         string;
   verificationCode?:       string;
   acceptedAt?:             string;
   timerExpiresAt?:         string;

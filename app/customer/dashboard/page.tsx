@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { ShoppingBag, CheckCircle, Clock, AlertTriangle, Plus } from 'lucide-react';
+import { ShoppingBag, CheckCircle, Clock, AlertTriangle, Plus, Shuffle, Edit3 } from 'lucide-react';
 import { StatCard } from '@/components/shared/StatCard';
 import { OrderStatusBadge } from '@/components/shared/OrderStatusBadge';
 import { Button } from '@/components/ui/button';
@@ -8,9 +8,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
-import { shortId, timeAgo, formatCurrency } from '@/lib/utils';
+import { shortId, timeAgo, formatCurrency, cn } from '@/lib/utils';
+import { EMAIL_DOMAINS } from '@/lib/emailDomains';
 import { Order } from '@/types';
 import Link from 'next/link';
 
@@ -20,9 +22,12 @@ export default function CustomerDashboard() {
   const [creating, setCreating] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [service, setService]   = useState('');
-  // FIX: was hardcoded to 50 everywhere below — now fetched from the live
-  // platform setting so it always matches whatever the admin configured.
   const [orderPrice, setOrderPrice] = useState<number | null>(null);
+
+  // NEW: email domain + random/custom choice for the account being created
+  const [domain, setDomain]         = useState('');
+  const [emailType, setEmailType]   = useState<'random' | 'custom'>('random');
+  const [customLocal, setCustomLocal] = useState('');
 
   const fetch = async () => {
     try {
@@ -36,7 +41,7 @@ export default function CustomerDashboard() {
     fetch();
     api.get('/settings/public')
       .then(({ data }) => { if (data.success) setOrderPrice(data.data.orderPrice); })
-      .catch(() => setOrderPrice(50)); // Safe fallback if the call fails
+      .catch(() => setOrderPrice(50));
   }, []);
 
   const stats = {
@@ -46,15 +51,27 @@ export default function CustomerDashboard() {
     disputes:  orders.filter(o => o.status === 'under_review').length,
   };
 
+  const resetModal = () => {
+    setService(''); setDomain(''); setEmailType('random'); setCustomLocal('');
+  };
+
   const createOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!service.trim()) { toast.error('Enter a service name.'); return; }
+    if (!domain) { toast.error('Select an email domain.'); return; }
+    if (emailType === 'custom' && !customLocal.trim()) { toast.error('Enter your custom email name.'); return; }
+
     setCreating(true);
     try {
-      const { data } = await api.post('/orders', { serviceName: service });
+      const { data } = await api.post('/orders', {
+        serviceName: service,
+        domain,
+        emailType,
+        customLocalPart: emailType === 'custom' ? customLocal.trim() : undefined,
+      });
       if (data.success) {
         toast.success('Order placed! Workers will accept it shortly.');
-        setShowModal(false); setService('');
+        setShowModal(false); resetModal();
         fetch();
       }
     } catch (err: any) { toast.error(err.response?.data?.message || 'Failed to create order.'); }
@@ -62,6 +79,9 @@ export default function CustomerDashboard() {
   };
 
   const priceLabel = orderPrice !== null ? formatCurrency(orderPrice) : '...';
+  const previewEmail = domain && emailType === 'custom' && customLocal.trim()
+    ? `${customLocal.trim().toLowerCase()}@${domain}`
+    : null;
 
   return (
     <div className="space-y-6">
@@ -117,7 +137,7 @@ export default function CustomerDashboard() {
       </div>
 
       {/* Create order modal */}
-      <Dialog open={showModal} onOpenChange={setShowModal}>
+      <Dialog open={showModal} onOpenChange={(v) => { setShowModal(v); if (!v) resetModal(); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Place New Order</DialogTitle>
@@ -126,10 +146,66 @@ export default function CustomerDashboard() {
             <div className="p-4 rounded-xl bg-purple-500/5 border border-purple-500/20">
               <p className="text-sm text-gray-300">You will be charged <span className="text-purple-400 font-bold">{priceLabel}</span> for this order. A worker will complete it and you will receive credentials.</p>
             </div>
+
             <div className="space-y-1.5">
               <Label>Service name / description</Label>
               <Input placeholder="e.g. Instagram login verification" value={service} onChange={e => setService(e.target.value)} autoFocus />
             </div>
+
+            <div className="space-y-1.5">
+              <Label>Email domain</Label>
+              <Select value={domain} onValueChange={setDomain}>
+                <SelectTrigger><SelectValue placeholder="Select a domain" /></SelectTrigger>
+                <SelectContent>
+                  {EMAIL_DOMAINS.map(d => <SelectItem key={d} value={d}>@{d}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Email type</Label>
+              <div className="flex gap-3">
+                <button type="button" onClick={() => setEmailType('random')}
+                  className={cn(
+                    'flex-1 flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all',
+                    emailType === 'random' ? 'border-purple-500 bg-purple-600/10 text-white' : 'border-[#374151] text-gray-400 hover:border-[#4B5563]'
+                  )}>
+                  <Shuffle className={cn('w-5 h-5', emailType === 'random' ? 'text-purple-400' : 'text-gray-500')} />
+                  <span className="font-medium text-sm">Random</span>
+                  <span className="text-xs text-gray-500 text-center">Auto-generated</span>
+                </button>
+                <button type="button" onClick={() => setEmailType('custom')}
+                  className={cn(
+                    'flex-1 flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all',
+                    emailType === 'custom' ? 'border-purple-500 bg-purple-600/10 text-white' : 'border-[#374151] text-gray-400 hover:border-[#4B5563]'
+                  )}>
+                  <Edit3 className={cn('w-5 h-5', emailType === 'custom' ? 'text-purple-400' : 'text-gray-500')} />
+                  <span className="font-medium text-sm">Custom</span>
+                  <span className="text-xs text-gray-500 text-center">You choose the name</span>
+                </button>
+              </div>
+            </div>
+
+            {emailType === 'custom' && (
+              <div className="space-y-1.5">
+                <Label>Custom email name</Label>
+                <div className="flex items-center gap-2">
+                  <Input placeholder="yourtext" value={customLocal} onChange={e => setCustomLocal(e.target.value)} className="flex-1" />
+                  <span className="text-gray-500 text-sm whitespace-nowrap">@{domain || '...'}</span>
+                </div>
+              </div>
+            )}
+
+            {previewEmail && (
+              <div className="p-3 rounded-xl bg-[#374151]/40 text-sm">
+                <span className="text-gray-500">Email to be created: </span>
+                <span className="text-white font-mono">{previewEmail}</span>
+              </div>
+            )}
+            {emailType === 'random' && domain && (
+              <p className="text-xs text-gray-500">A random email address will be generated automatically on @{domain}.</p>
+            )}
+
             <div className="flex gap-3 justify-end">
               <Button type="button" variant="outline" onClick={() => setShowModal(false)}>Cancel</Button>
               <Button type="submit" loading={creating}>Place Order — {priceLabel}</Button>

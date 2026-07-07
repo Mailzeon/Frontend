@@ -2,7 +2,7 @@
 import { shortId, formatDate, formatCurrency, formatCountdown, cn } from '@/lib/utils';
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, Send, Key, Clock } from 'lucide-react';
+import { ArrowLeft, Send, Key, Clock, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -36,6 +36,7 @@ export default function WorkerOrderDetail() {
   const [order, setOrder]   = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
+  // NEW: email is now pre-filled + locked to order.requestedEmail once loaded
   const [email, setEmail]   = useState('');
   const [password, setPass] = useState('');
   const [notes, setNotes]   = useState('');
@@ -60,6 +61,13 @@ export default function WorkerOrderDetail() {
       socket.off(SOCKET_EVENTS.NEW_CODE_REQUESTED);
     };
   }, [fetchOrder]);
+
+  // NEW: once the order loads, lock the email field to exactly what the
+  // customer requested — the worker must create THIS account, not a
+  // different one of their own choosing.
+  useEffect(() => {
+    if (order?.requestedEmail) setEmail(order.requestedEmail);
+  }, [order?.requestedEmail]);
 
   const submitCredentials = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,7 +101,6 @@ export default function WorkerOrderDetail() {
 
   const isAccepted = order.status === 'accepted';
   const isVerif    = order.status === 'verification_pending';
-  const isDone     = ['completed','cancelled'].includes(order.status);
 
   return (
     <div className="max-w-xl space-y-5">
@@ -117,6 +124,17 @@ export default function WorkerOrderDetail() {
         {isAccepted && <TimerBadge expiresAt={order.timerExpiresAt} />}
       </div>
 
+      {/* NEW: requested email callout — shown throughout the working states */}
+      {order.requestedEmail && (isAccepted || order.status === 'credentials_submitted' || isVerif) && (
+        <div className="glass-card p-4 border border-blue-500/20 bg-blue-500/5">
+          <div className="flex items-center gap-2 mb-1">
+            <Mail className="w-4 h-4 text-blue-400 shrink-0" />
+            <p className="text-xs text-blue-400 font-medium uppercase tracking-wider">Email to create</p>
+          </div>
+          <p className="text-white font-mono text-sm break-all">{order.requestedEmail}</p>
+        </div>
+      )}
+
       {/* Step 1 — Submit credentials */}
       {isAccepted && (
         <div className="glass-card p-6 space-y-4">
@@ -124,15 +142,21 @@ export default function WorkerOrderDetail() {
             <div className="w-6 h-6 rounded-full bg-purple-500 flex items-center justify-center text-white text-xs font-bold">1</div>
             <h2 className="font-semibold text-white">Submit Credentials</h2>
           </div>
-          <p className="text-sm text-gray-400">Enter the account credentials for this service. The customer will NOT see your name or contact info.</p>
+          <p className="text-sm text-gray-400">Create the account using the exact email shown above, then submit the password here. The customer will NOT see your name or contact info.</p>
           <form onSubmit={submitCredentials} className="space-y-3">
             <div className="space-y-1.5">
-              <Label>Email / Username</Label>
-              <Input placeholder="account@example.com" value={email} onChange={e => setEmail(e.target.value)} />
+              <Label>Email {order.requestedEmail && <span className="text-gray-500">(locked to customer&apos;s request)</span>}</Label>
+              <Input
+                placeholder="account@example.com"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                disabled={!!order.requestedEmail}
+                className={order.requestedEmail ? 'opacity-70 cursor-not-allowed' : ''}
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Password</Label>
-              <Input type="password" placeholder="Account password" value={password} onChange={e => setPass(e.target.value)} />
+              <Input type="password" placeholder="Account password" value={password} onChange={e => setPass(e.target.value)} autoFocus />
             </div>
             <div className="space-y-1.5">
               <Label>Notes <span className="text-gray-500">(optional)</span></Label>
@@ -194,6 +218,13 @@ export default function WorkerOrderDetail() {
         <div className="glass-card p-6 text-center space-y-2 border border-red-500/20">
           <p className="font-semibold text-white">Under Review</p>
           <p className="text-sm text-gray-400">The customer raised a dispute. Admin is reviewing this order.</p>
+        </div>
+      )}
+
+      {order.status === 'cancelled' && (
+        <div className="glass-card p-6 text-center space-y-2 border border-gray-500/20">
+          <p className="font-semibold text-white">Order Cancelled</p>
+          <p className="text-sm text-gray-400">This order was cancelled following a dispute review. No earnings were released for it.</p>
         </div>
       )}
     </div>

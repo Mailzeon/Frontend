@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { useParams }        from 'next/navigation';
-import { ArrowLeft, Clock, CheckCircle, AlertTriangle, RefreshCw, Star, XCircle } from 'lucide-react';
+import { ArrowLeft, Clock, CheckCircle, AlertTriangle, RefreshCw, Star, XCircle, Mail } from 'lucide-react';
 import { Button }           from '@/components/ui/button';
 import { OrderStatusBadge } from '@/components/shared/OrderStatusBadge';
 import { Skeleton }         from '@/components/ui/skeleton';
@@ -60,12 +60,15 @@ export default function CustomerOrderDetail() {
     socket.on(SOCKET_EVENTS.CREDENTIALS_READY, refresh);
     socket.on(SOCKET_EVENTS.CODE_RECEIVED,     refresh);
     socket.on(SOCKET_EVENTS.ORDER_COMPLETED,   refresh);
+    // NEW: refresh when a dispute resolution cancels the order
+    socket.on(SOCKET_EVENTS.ORDER_CANCELLED,   refresh);
 
     return () => {
       socket.off(SOCKET_EVENTS.ORDER_ACCEPTED,    refresh);
       socket.off(SOCKET_EVENTS.CREDENTIALS_READY, refresh);
       socket.off(SOCKET_EVENTS.CODE_RECEIVED,     refresh);
       socket.off(SOCKET_EVENTS.ORDER_COMPLETED,   refresh);
+      socket.off(SOCKET_EVENTS.ORDER_CANCELLED,   refresh);
     };
   }, [fetchOrder]);
 
@@ -82,7 +85,6 @@ export default function CustomerOrderDetail() {
     }
   };
 
-  // New: cancel a pending order (before any worker has accepted it)
   const cancelOrder = async () => {
     setCancelling(true);
     try {
@@ -187,6 +189,13 @@ export default function CustomerOrderDetail() {
           <div>
             <p className="text-gray-500 text-xs">Completed</p>
             <p className="text-green-400">{formatDate(order.completedAt)}</p>
+          </div>
+        )}
+        {/* NEW: show what email was requested for this order */}
+        {order.requestedEmail && (
+          <div className="col-span-2 pt-1 border-t border-[#374151]">
+            <p className="text-gray-500 text-xs flex items-center gap-1"><Mail className="w-3 h-3" /> Requested Email</p>
+            <p className="text-gray-300 font-mono text-sm break-all">{order.requestedEmail}</p>
           </div>
         )}
       </div>
@@ -311,12 +320,14 @@ export default function CustomerOrderDetail() {
         </div>
       )}
 
-      {/* Cancelled */}
+      {/* Cancelled — could be self-cancelled (pending) or dispute-resolved */}
       {isCancelled && (
         <div className="glass-card p-6 text-center space-y-3">
           <XCircle className="w-10 h-10 text-gray-500 mx-auto" />
           <p className="font-semibold text-white">Order Cancelled</p>
-          <p className="text-sm text-gray-400">This order was cancelled.</p>
+          <p className="text-sm text-gray-400">
+            This order was cancelled. If this followed a dispute, your complaint was upheld and the worker was not paid for it.
+          </p>
         </div>
       )}
 

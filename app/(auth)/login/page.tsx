@@ -90,13 +90,6 @@ export default function LoginPage() {
               </Link>
             </p>
           </div>
-
-          {/* Demo credentials hint */}
-          <div className="mt-6 p-3 rounded-xl bg-[#374151]/40 border border-[#374151]">
-            <p className="text-xs text-gray-500 text-center">
-              Admin: <span className="text-gray-300">admin@marketplace.com</span> / <span className="text-gray-300">admin123456</span>
-            </p>
-          </div>
         </div>
       </div>
     </div>

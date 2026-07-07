@@ -1,7 +1,7 @@
 'use client';
 import { formatDate, shortId, cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, UserX, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -16,6 +16,13 @@ const REASON_LABELS: Record<string, string> = {
 };
 const STATUS_COLOR: Record<string, string> = {
   open: 'text-red-400', resolved: 'text-green-400', rejected: 'text-gray-400',
+};
+// Clearer, human labels for the final outcome shown in the closed list —
+// 'resolved' means the customer's claim was upheld (order cancelled),
+// 'rejected' means the claim was denied (order completed, worker paid).
+const OUTCOME_LABELS: Record<string, string> = {
+  resolved: 'Sided with Customer — Order Cancelled',
+  rejected: 'Sided with Worker — Order Completed',
 };
 
 export default function AdminDisputesPage() {
@@ -41,7 +48,11 @@ export default function AdminDisputesPage() {
     try {
       const { data } = await api.patch(`/admin/disputes/${selected._id}`, { status, adminNote: note });
       if (data.success) {
-        toast.success(`Dispute ${status}.`);
+        toast.success(
+          status === 'resolved'
+            ? 'Dispute resolved — order cancelled, worker not paid.'
+            : 'Dispute rejected — order completed, worker paid.'
+        );
         setDisputes(p => p.map(d => d._id === selected._id ? { ...d, status } : d));
         setSelected(null); setNote('');
       }
@@ -70,7 +81,9 @@ export default function AdminDisputesPage() {
               <div key={d._id} className="p-4 flex items-start justify-between gap-4 flex-wrap">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className={`text-xs font-semibold capitalize ${STATUS_COLOR[d.status]}`}>{d.status}</span>
+                    <span className={`text-xs font-semibold ${STATUS_COLOR[d.status]}`}>
+                      {d.status === 'open' ? 'Open' : OUTCOME_LABELS[d.status]}
+                    </span>
                     <span className="text-gray-600">·</span>
                     <span className="text-xs text-gray-500">{shortId(d.orderId?._id ?? d.orderId)}</span>
                   </div>
@@ -83,7 +96,7 @@ export default function AdminDisputesPage() {
                 </div>
                 {d.status === 'open' && (
                   <Button size="sm" onClick={() => { setSelected(d); setNote(''); }}>
-                    Resolve
+                    Review
                   </Button>
                 )}
               </div>
@@ -92,10 +105,10 @@ export default function AdminDisputesPage() {
         )}
       </div>
 
-      {/* Resolve modal */}
+      {/* Review modal — buttons now clearly state the real consequence */}
       <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Resolve Dispute</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Review Dispute</DialogTitle></DialogHeader>
           {selected && (
             <div className="space-y-4">
               <div className="p-3 rounded-xl bg-[#374151]/40 text-sm space-y-1">
@@ -103,14 +116,40 @@ export default function AdminDisputesPage() {
                 <p className="text-gray-400">Order: {shortId(selected.orderId?._id ?? selected.orderId)}</p>
                 {selected.description && <p className="text-gray-400 italic">"{selected.description}"</p>}
               </div>
+
+              <div className="p-3 rounded-xl bg-blue-500/5 border border-blue-500/20 text-xs text-blue-400">
+                Choose an outcome below. This immediately closes the order — there is no further
+                action needed afterward.
+              </div>
+
               <div className="space-y-1.5">
                 <Label>Admin Note (optional)</Label>
                 <Input placeholder="Explanation for your decision..." value={note} onChange={e => setNote(e.target.value)} />
               </div>
-              <div className="flex gap-3 justify-end">
+
+              <div className="grid grid-cols-1 gap-2">
+                <Button
+                  variant="destructive"
+                  loading={acting}
+                  onClick={() => resolve('resolved')}
+                  className="justify-start"
+                >
+                  <UserX className="w-4 h-4 mr-2 shrink-0" />
+                  Side with Customer — Cancel Order (worker not paid)
+                </Button>
+                <Button
+                  variant="success"
+                  loading={acting}
+                  onClick={() => resolve('rejected')}
+                  className="justify-start"
+                >
+                  <CheckCircle2 className="w-4 h-4 mr-2 shrink-0" />
+                  Side with Worker — Complete Order (worker paid)
+                </Button>
+              </div>
+
+              <div className="flex justify-end">
                 <Button variant="outline" onClick={() => setSelected(null)}>Cancel</Button>
-                <Button variant="destructive" loading={acting} onClick={() => resolve('rejected')}>Reject Dispute</Button>
-                <Button variant="success" loading={acting} onClick={() => resolve('resolved')}>Resolve</Button>
               </div>
             </div>
           )}

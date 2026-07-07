@@ -1,7 +1,7 @@
 'use client';
 import { timeAgo, formatCurrency, cn } from '@/lib/utils';
 import { useState, useEffect, useCallback } from 'react';
-import { Store, Clock, Zap } from 'lucide-react';
+import { Store, Clock, Zap, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/toast';
@@ -15,8 +15,6 @@ export default function WorkerMarketplace() {
   const [orders, setOrders]       = useState<Order[]>([]);
   const [loading, setLoading]     = useState(true);
   const [accepting, setAccepting] = useState<string | null>(null);
-  // FIX: was hardcoded formatCurrency(20) — now reflects the live
-  // admin-configured worker earning amount.
   const [workerEarning, setWorkerEarning] = useState<number | null>(null);
 
   const fetchOrders = useCallback(async () => {
@@ -102,11 +100,18 @@ export default function WorkerMarketplace() {
                   <Zap className="w-4 h-4 text-purple-400 shrink-0" />
                   <p className="font-semibold text-white truncate">{o.serviceName}</p>
                 </div>
-                <div className="flex items-center gap-3 text-xs text-gray-500">
+                <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
                   <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{timeAgo(o.createdAt)}</span>
                   <span>·</span>
                   <span>Customer pays {formatCurrency(o.amount)}</span>
                 </div>
+                {/* NEW: show the exact email the worker will need to create */}
+                {o.requestedEmail && (
+                  <div className="flex items-center gap-1.5 mt-1.5 text-xs text-blue-400">
+                    <Mail className="w-3 h-3 shrink-0" />
+                    <span className="font-mono truncate">Create: {o.requestedEmail}</span>
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-4 shrink-0">
                 <div className="text-right">

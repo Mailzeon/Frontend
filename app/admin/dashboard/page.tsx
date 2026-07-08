@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Users, ShoppingBag, Wallet, AlertTriangle, TrendingUp, Activity, Clock } from 'lucide-react';
+import { Users, ShoppingBag, Wallet, AlertTriangle, TrendingUp, Activity, Clock, Undo2 } from 'lucide-react';
 import { StatCard } from '@/components/shared/StatCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/toast';
@@ -29,7 +29,6 @@ export default function AdminDashboard() {
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        // Fetch both stats and real analytics in parallel
         const [statsRes, analyticsRes] = await Promise.allSettled([
           api.get('/admin/stats'),
           api.get('/admin/analytics'),
@@ -86,9 +85,10 @@ export default function AdminDashboard() {
         <StatCard title="Pending Orders"      value={stats?.pendingOrders     ?? 0} icon={Clock}         color="yellow" />
       </div>
 
-      {/* Alert stats */}
-      <div className="grid grid-cols-2 gap-4">
+      {/* Alert stats — NEW: added Pending Refunds */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         <StatCard title="Pending Withdrawals" value={stats?.pendingWithdrawals ?? 0} icon={Wallet}        color="yellow" />
+        <StatCard title="Pending Refunds"     value={stats?.pendingRefunds     ?? 0} icon={Undo2}         color="yellow" />
         <StatCard title="Open Disputes"       value={stats?.openDisputes       ?? 0} icon={AlertTriangle} color="red"    />
       </div>
 

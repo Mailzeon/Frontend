@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { useParams }        from 'next/navigation';
-import { ArrowLeft, Clock, CheckCircle, AlertTriangle, RefreshCw, Star, XCircle, Mail } from 'lucide-react';
+import { ArrowLeft, Clock, CheckCircle, AlertTriangle, RefreshCw, Star, XCircle, Mail, Eye, EyeOff, Copy, IndianRupee } from 'lucide-react';
 import { Button }           from '@/components/ui/button';
 import { OrderStatusBadge } from '@/components/shared/OrderStatusBadge';
 import { Skeleton }         from '@/components/ui/skeleton';
@@ -23,6 +23,15 @@ const DISPUTE_REASONS: { value: DisputeReason; label: string }[] = [
   { value: 'other',           label: 'Other issue' },
 ];
 
+const copyToClipboard = async (text: string, label: string) => {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast.success(`${label} copied!`);
+  } catch {
+    toast.error('Could not copy. Please copy it manually.');
+  }
+};
+
 export default function CustomerOrderDetail() {
   const { id } = useParams<{ id: string }>();
 
@@ -32,12 +41,18 @@ export default function CustomerOrderDetail() {
   const [showDispute,  setShowDispute]  = useState(false);
   const [showRating,   setShowRating]   = useState(false);
   const [showCancel,   setShowCancel]   = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [rating,       setRating]       = useState(0);
   const [rated,        setRated]        = useState(false);
   const [disputeReason, setDisputeReason] = useState<DisputeReason>('wrong_password');
   const [disputeDesc,   setDisputeDesc]   = useState('');
   const [submittingDispute, setSubmittingDispute] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+
+  // NEW: refund request state
+  const [showRefund, setShowRefund] = useState(false);
+  const [refundUpi, setRefundUpi]   = useState('');
+  const [submittingRefund, setSubmittingRefund] = useState(false);
 
   const fetchOrder = useCallback(async () => {
     try {
@@ -60,7 +75,6 @@ export default function CustomerOrderDetail() {
     socket.on(SOCKET_EVENTS.CREDENTIALS_READY, refresh);
     socket.on(SOCKET_EVENTS.CODE_RECEIVED,     refresh);
     socket.on(SOCKET_EVENTS.ORDER_COMPLETED,   refresh);
-    // NEW: refresh when a dispute resolution cancels the order
     socket.on(SOCKET_EVENTS.ORDER_CANCELLED,   refresh);
 
     return () => {
@@ -136,6 +150,26 @@ export default function CustomerOrderDetail() {
     }
   };
 
+  // NEW: submit refund request with UPI ID
+  const submitRefund = async () => {
+    if (!refundUpi.trim()) { toast.error('Enter your UPI ID.'); return; }
+    setSubmittingRefund(true);
+    try {
+      const { data } = await api.post('/refunds', { orderId: id, upiId: refundUpi.trim() });
+      if (data.success) {
+        toast.success('Refund request submitted!');
+        setShowRefund(false);
+        setRefundUpi('');
+        fetchOrder();
+      }
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      toast.error(msg || 'Failed to submit refund request.');
+    } finally {
+      setSubmittingRefund(false);
+    }
+  };
+
   if (loading) return (
     <div className="max-w-2xl space-y-4">
       <Skeleton className="h-8 w-48" />
@@ -152,6 +186,9 @@ export default function CustomerOrderDetail() {
   const isCompleted = order.status === 'completed';
   const isReview    = order.status === 'under_review';
   const isCancelled = order.status === 'cancelled';
+
+  // Credentials (email/password) exist from credentials_submitted state onward
+  const hasCredentials = !!order.credentials?.password;
 
   return (
     <div className="max-w-2xl space-y-5">
@@ -191,14 +228,55 @@ export default function CustomerOrderDetail() {
             <p className="text-green-400">{formatDate(order.completedAt)}</p>
           </div>
         )}
-        {/* NEW: show what email was requested for this order */}
-        {order.requestedEmail && (
-          <div className="col-span-2 pt-1 border-t border-[#374151]">
-            <p className="text-gray-500 text-xs flex items-center gap-1"><Mail className="w-3 h-3" /> Requested Email</p>
-            <p className="text-gray-300 font-mono text-sm break-all">{order.requestedEmail}</p>
-          </div>
-        )}
       </div>
+
+      {/* NEW (Issue 1 fix): Account details card — email + password the
+          worker created. This is the actual deliverable the customer paid
+          for, so it stays visible once submitted, regardless of the
+          order's later status (completed / under review / cancelled). */}
+      {hasCredentials && (
+        <div className="glass-card p-5 border border-blue-500/20 bg-blue-500/5 space-y-3">
+          <div className="flex items-center gap-2">
+            <Mail className="w-4 h-4 text-blue-400 shrink-0" />
+            <p className="text-sm font-semibold text-white">Your Account Details</p>
+          </div>
+
+          <div className="space-y-1">
+            <p className="text-xs text-gray-500">Email</p>
+            <div className="flex items-center gap-2">
+              <p className="text-white font-mono text-sm break-all flex-1">{order.credentials!.email}</p>
+              <button onClick={() => copyToClipboard(order.credentials!.email, 'Email')}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#374151] shrink-0">
+                <Copy className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <p className="text-xs text-gray-500">Password</p>
+            <div className="flex items-center gap-2">
+              <p className="text-white font-mono text-sm break-all flex-1">
+                {showPassword ? order.credentials!.password : '••••••••••'}
+              </p>
+              <button onClick={() => setShowPassword(!showPassword)}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#374151] shrink-0">
+                {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              </button>
+              <button onClick={() => copyToClipboard(order.credentials!.password, 'Password')}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#374151] shrink-0">
+                <Copy className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {order.credentials?.notes && (
+            <div className="space-y-1 pt-2 border-t border-[#374151]">
+              <p className="text-xs text-gray-500">Notes from worker</p>
+              <p className="text-gray-300 text-sm">{order.credentials.notes}</p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Pending — with cancel option */}
       {isPending && (
@@ -231,7 +309,7 @@ export default function CustomerOrderDetail() {
       {(isCreds || isVerif) && (
         <div className="glass-card p-6 space-y-5">
           <p className="font-semibold text-white text-center">
-            Credentials received. Were you able to log in?
+            Were you able to log in with the details above?
           </p>
 
           {isVerif && order.verificationCode && (
@@ -320,14 +398,38 @@ export default function CustomerOrderDetail() {
         </div>
       )}
 
-      {/* Cancelled — could be self-cancelled (pending) or dispute-resolved */}
+      {/* Cancelled — NEW: full refund flow */}
       {isCancelled && (
-        <div className="glass-card p-6 text-center space-y-3">
+        <div className="glass-card p-6 text-center space-y-4">
           <XCircle className="w-10 h-10 text-gray-500 mx-auto" />
           <p className="font-semibold text-white">Order Cancelled</p>
           <p className="text-sm text-gray-400">
-            This order was cancelled. If this followed a dispute, your complaint was upheld and the worker was not paid for it.
+            This order was cancelled following a dispute resolved in your favor.
           </p>
+
+          {order.refundEligible && (
+            <Button onClick={() => setShowRefund(true)}>
+              <IndianRupee className="w-4 h-4 mr-2" /> Request Refund — {formatCurrency(order.amount)}
+            </Button>
+          )}
+
+          {order.refundStatus === 'pending' && (
+            <div className="p-3 rounded-xl bg-yellow-500/5 border border-yellow-500/20 text-sm text-yellow-400">
+              ⏳ Refund request submitted. Your {formatCurrency(order.amount)} refund is being processed — this typically takes 24–48 hours.
+            </div>
+          )}
+
+          {order.refundStatus === 'completed' && (
+            <div className="p-3 rounded-xl bg-green-500/5 border border-green-500/20 text-sm text-green-400">
+              ✅ Refunded successfully! {formatCurrency(order.amount)} has been sent to your UPI ID.
+            </div>
+          )}
+
+          {order.refundStatus === 'rejected' && (
+            <div className="p-3 rounded-xl bg-red-500/5 border border-red-500/20 text-sm text-red-400">
+              ❌ Your refund request was rejected. Contact support if you believe this is incorrect.
+            </div>
+          )}
         </div>
       )}
 
@@ -344,6 +446,34 @@ export default function CustomerOrderDetail() {
               <Button variant="destructive" loading={cancelling} onClick={cancelOrder}>
                 Yes, Cancel Order
               </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* NEW: Refund request modal */}
+      <Dialog open={showRefund} onOpenChange={setShowRefund}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Request Refund</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="p-3 rounded-xl bg-green-500/5 border border-green-500/20 text-sm text-gray-300">
+              Refund amount: <span className="text-green-400 font-bold">{formatCurrency(order.amount)}</span>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Your UPI ID</Label>
+              <Input
+                placeholder="yourname@okhdfcbank"
+                value={refundUpi}
+                onChange={e => setRefundUpi(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <p className="text-xs text-gray-500">
+              Admin will manually transfer the refund to this UPI ID and mark it complete. This usually takes 24–48 hours.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={() => setShowRefund(false)}>Cancel</Button>
+              <Button loading={submittingRefund} onClick={submitRefund}>Submit Refund Request</Button>
             </div>
           </div>
         </DialogContent>

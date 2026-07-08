@@ -30,11 +30,21 @@ const SelectContent = React.forwardRef<
   <SelectPrimitive.Portal>
     <SelectPrimitive.Content
       ref={ref}
-      className={cn('relative z-50 min-w-[8rem] overflow-hidden rounded-xl border border-[#374151] bg-[#1F2937] text-white shadow-card-lg', className)}
+      // FIX (Issue 2): previously had no max-height, so a long list (e.g.
+      // 12 email domains) would grow unbounded and Radix would flip it
+      // above the trigger, sometimes rendering it cut off at the top of
+      // the viewport. Now capped with an internal scroll so it always
+      // stays fully within the visible screen.
+      className={cn(
+        'relative z-50 min-w-[8rem] max-h-72 overflow-hidden rounded-xl border border-[#374151] bg-[#1F2937] text-white shadow-card-lg',
+        className
+      )}
       position={position}
+      sideOffset={6}
+      collisionPadding={12}
       {...props}
     >
-      <SelectPrimitive.Viewport className="p-1">{children}</SelectPrimitive.Viewport>
+      <SelectPrimitive.Viewport className="p-1 max-h-72 overflow-y-auto">{children}</SelectPrimitive.Viewport>
     </SelectPrimitive.Content>
   </SelectPrimitive.Portal>
 ));

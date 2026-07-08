@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, ShoppingBag, Wallet, Store, ClipboardList,
-  Users, AlertTriangle, BarChart3, LogOut, Zap, Shield, Settings, X
+  Users, AlertTriangle, BarChart3, LogOut, Zap, Shield, Settings, Undo2, X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
@@ -30,6 +30,7 @@ const adminNav: NavItem[] = [
   { href: '/admin/orders',       label: 'All Orders',   Icon: ClipboardList },
   { href: '/admin/users',        label: 'Users',        Icon: Users },
   { href: '/admin/withdrawals',  label: 'Withdrawals',  Icon: Wallet },
+  { href: '/admin/refunds',      label: 'Refunds',      Icon: Undo2 },
   { href: '/admin/disputes',     label: 'Disputes',     Icon: AlertTriangle },
   { href: '/admin/settings',     label: 'Settings',     Icon: Settings },
 ];
@@ -85,7 +86,7 @@ export function Sidebar() {
               <Link
                 key={href}
                 href={href}
-                onClick={closeMobileSidebar} // Auto-close drawer on mobile navigation
+                onClick={closeMobileSidebar}
                 className={cn(active ? 'nav-item-active' : 'nav-item')}
               >
                 <Icon className="w-4 h-4 shrink-0" />

@@ -21,10 +21,15 @@ export interface Order {
   amount:                  number;
   workerEarning:           number;
   status:                  OrderStatus;
-  // NEW: the email address the customer requested be created for this
-  // order. Optional because orders created before this feature existed
-  // won't have it.
   requestedEmail?:         string;
+  // NEW (Issue 1 fix): the account credentials the worker submitted. Only
+  // present once status reaches 'credentials_submitted' or later. The
+  // customer legitimately needs this — it's the password to their account.
+  credentials?: {
+    email:    string;
+    password: string;
+    notes?:   string;
+  };
   verificationCode?:       string;
   acceptedAt?:             string;
   timerExpiresAt?:         string;
@@ -33,6 +38,10 @@ export interface Order {
   completedAt?:            string;
   createdAt:               string;
   updatedAt:               string;
+  // NEW (Issue 3 — refund flow): only populated on the customer's own
+  // order-detail fetch, computed server-side, not stored on the document.
+  refundEligible?:         boolean;
+  refundStatus?:           'pending' | 'completed' | 'rejected' | null;
 }
 
 // ─── Wallet ───────────────────────────────────────────────────────────────────
@@ -84,6 +93,21 @@ export interface WithdrawRequest {
     bankName:      string;
   };
   status:       WithdrawalStatus;
+  adminNote?:   string;
+  processedAt?: string;
+  createdAt:    string;
+}
+
+// ─── Refund (NEW) ─────────────────────────────────────────────────────────────
+export type RefundStatus = 'pending' | 'completed' | 'rejected';
+
+export interface RefundRequestType {
+  _id:          string;
+  orderId:      string;
+  customerId:   string;
+  amount:       number;
+  upiId:        string;
+  status:       RefundStatus;
   adminNote?:   string;
   processedAt?: string;
   createdAt:    string;

@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { ShoppingBag, CheckCircle, Clock, AlertTriangle, Plus, Shuffle, Edit3 } from 'lucide-react';
+import { ShoppingBag, CheckCircle, Clock, AlertTriangle, Plus, Shuffle, Edit3, Check } from 'lucide-react';
 import { StatCard } from '@/components/shared/StatCard';
 import { OrderStatusBadge } from '@/components/shared/OrderStatusBadge';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
 import { shortId, timeAgo, formatCurrency, cn } from '@/lib/utils';
@@ -24,7 +23,6 @@ export default function CustomerDashboard() {
   const [service, setService]   = useState('');
   const [orderPrice, setOrderPrice] = useState<number | null>(null);
 
-  // NEW: email domain + random/custom choice for the account being created
   const [domain, setDomain]         = useState('');
   const [emailType, setEmailType]   = useState<'random' | 'custom'>('random');
   const [customLocal, setCustomLocal] = useState('');
@@ -138,7 +136,7 @@ export default function CustomerDashboard() {
 
       {/* Create order modal */}
       <Dialog open={showModal} onOpenChange={(v) => { setShowModal(v); if (!v) resetModal(); }}>
-        <DialogContent>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Place New Order</DialogTitle>
           </DialogHeader>
@@ -152,14 +150,30 @@ export default function CustomerDashboard() {
               <Input placeholder="e.g. Instagram login verification" value={service} onChange={e => setService(e.target.value)} autoFocus />
             </div>
 
+            {/* FIX (Issue 2): domain picker redesigned as a contained button
+                grid instead of a native dropdown — no portal, no overflow
+                risk, and visually consistent with the Random/Custom cards
+                below. */}
             <div className="space-y-1.5">
               <Label>Email domain</Label>
-              <Select value={domain} onValueChange={setDomain}>
-                <SelectTrigger><SelectValue placeholder="Select a domain" /></SelectTrigger>
-                <SelectContent>
-                  {EMAIL_DOMAINS.map(d => <SelectItem key={d} value={d}>@{d}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <div className="grid grid-cols-3 gap-2">
+                {EMAIL_DOMAINS.map(d => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setDomain(d)}
+                    className={cn(
+                      'relative flex items-center justify-center gap-1 px-2 py-2 rounded-lg border text-xs font-medium transition-all truncate',
+                      domain === d
+                        ? 'border-purple-500 bg-purple-600/10 text-white'
+                        : 'border-[#374151] text-gray-400 hover:border-[#4B5563] hover:text-gray-200'
+                    )}
+                  >
+                    {domain === d && <Check className="w-3 h-3 text-purple-400 shrink-0" />}
+                    <span className="truncate">@{d}</span>
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="space-y-1.5">
@@ -199,14 +213,14 @@ export default function CustomerDashboard() {
             {previewEmail && (
               <div className="p-3 rounded-xl bg-[#374151]/40 text-sm">
                 <span className="text-gray-500">Email to be created: </span>
-                <span className="text-white font-mono">{previewEmail}</span>
+                <span className="text-white font-mono break-all">{previewEmail}</span>
               </div>
             )}
             {emailType === 'random' && domain && (
               <p className="text-xs text-gray-500">A random email address will be generated automatically on @{domain}.</p>
             )}
 
-            <div className="flex gap-3 justify-end">
+            <div className="flex gap-3 justify-end pt-1">
               <Button type="button" variant="outline" onClick={() => setShowModal(false)}>Cancel</Button>
               <Button type="submit" loading={creating}>Place Order — {priceLabel}</Button>
             </div>

@@ -3,7 +3,8 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, ShoppingBag, Wallet, Store, ClipboardList,
-  Users, AlertTriangle, BarChart3, LogOut, Zap, Shield, Settings, Undo2, X
+  Users, AlertTriangle, BarChart3, LogOut, Zap, Shield, Settings,
+  Undo2, X, User, Trophy
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
@@ -16,13 +17,17 @@ const customerNav: NavItem[] = [
   { href: '/customer/dashboard', label: 'Dashboard', Icon: LayoutDashboard },
   { href: '/customer/orders',    label: 'My Orders',  Icon: ShoppingBag },
   { href: '/customer/wallet',    label: 'Wallet',     Icon: Wallet },
+  { href: '/customer/refunds',   label: 'Refunds',    Icon: Undo2 },
+  { href: '/customer/profile',   label: 'Profile',    Icon: User },
 ];
 
 const workerNav: NavItem[] = [
-  { href: '/worker/dashboard',    label: 'Dashboard',   Icon: LayoutDashboard },
-  { href: '/worker/marketplace',  label: 'Marketplace', Icon: Store },
-  { href: '/worker/orders',       label: 'My Orders',   Icon: ClipboardList },
-  { href: '/worker/wallet',       label: 'Earnings',    Icon: Wallet },
+  { href: '/worker/dashboard',    label: 'Dashboard',    Icon: LayoutDashboard },
+  { href: '/worker/marketplace',  label: 'Marketplace',  Icon: Store },
+  { href: '/worker/orders',       label: 'My Orders',    Icon: ClipboardList },
+  { href: '/worker/wallet',       label: 'Earnings',     Icon: Wallet },
+  { href: '/worker/leaderboard',  label: 'Leaderboard',  Icon: Trophy },
+  { href: '/worker/profile',      label: 'Profile',      Icon: User },
 ];
 
 const adminNav: NavItem[] = [
@@ -33,6 +38,7 @@ const adminNav: NavItem[] = [
   { href: '/admin/refunds',      label: 'Refunds',      Icon: Undo2 },
   { href: '/admin/disputes',     label: 'Disputes',     Icon: AlertTriangle },
   { href: '/admin/settings',     label: 'Settings',     Icon: Settings },
+  { href: '/admin/profile',      label: 'Profile',      Icon: User },
 ];
 
 export function Sidebar() {

@@ -1,6 +1,7 @@
 'use client';
 import { timeAgo, formatCurrency, cn } from '@/lib/utils';
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { Store, Clock, Zap, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -12,6 +13,7 @@ import { getSocket, SOCKET_EVENTS } from '@/lib/socket';
 
 export default function WorkerMarketplace() {
   const { user } = useAuthStore();
+  const router = useRouter();
   const [orders, setOrders]       = useState<Order[]>([]);
   const [loading, setLoading]     = useState(true);
   const [accepting, setAccepting] = useState<string | null>(null);
@@ -47,7 +49,10 @@ export default function WorkerMarketplace() {
       if (data.success) {
         toast.success('Order accepted! You have 10 minutes to submit credentials.');
         setOrders(prev => prev.filter(o => o._id !== orderId));
-        window.location.href = `/worker/orders/${orderId}`;
+        // FIX: was window.location.href (full page reload, destroyed all
+        // Zustand state including the socket connection). Now uses Next.js
+        // client-side navigation so the app state stays intact.
+        router.push(`/worker/orders/${orderId}`);
       }
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Could not accept order.');
@@ -105,7 +110,6 @@ export default function WorkerMarketplace() {
                   <span>·</span>
                   <span>Customer pays {formatCurrency(o.amount)}</span>
                 </div>
-                {/* NEW: show the exact email the worker will need to create */}
                 {o.requestedEmail && (
                   <div className="flex items-center gap-1.5 mt-1.5 text-xs text-blue-400">
                     <Mail className="w-3 h-3 shrink-0" />

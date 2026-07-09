@@ -1,23 +1,47 @@
 'use client';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Bell, X, CheckCheck, Menu } from 'lucide-react';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useSocket } from '@/hooks/useSocket';
 import { useUIStore } from '@/store/uiStore';
+import { useAuthStore } from '@/store/authStore';
 import { timeAgo, cn } from '@/lib/utils';
+import { Notification } from '@/types';
 
 interface NavbarProps { title: string; }
 
 export function Navbar({ title }: NavbarProps) {
   useSocket(); // Keep socket alive throughout session
+  const router = useRouter();
+  const { user } = useAuthStore();
   const [open, setOpen] = useState(false);
   const { notifications, unreadCount, handleMarkAsRead, handleMarkAllAsRead } = useNotifications();
   const { toggleMobileSidebar } = useUIStore();
 
+  // NEW: clicking a notification now marks it read AND navigates to the
+  // related order (if any) — previously it only marked it read and did
+  // nothing else, which felt broken since most notifications are about
+  // a specific order.
+  const handleNotificationClick = (n: Notification) => {
+    handleMarkAsRead(n._id);
+    setOpen(false);
+
+    if (!n.orderId || !user) return;
+
+    if (user.role === 'customer') {
+      router.push(`/customer/orders/${n.orderId}`);
+    } else if (user.role === 'worker') {
+      router.push(`/worker/orders/${n.orderId}`);
+    } else if (user.role === 'admin') {
+      // Admin has no per-order detail page — send them to the filtered list.
+      router.push('/admin/orders');
+    }
+  };
+
   return (
     <>
       <header className="h-16 bg-[#111827]/80 backdrop-blur-sm border-b border-[#374151] flex items-center px-4 md:px-6 gap-3 md:gap-4 sticky top-0 z-20">
-        {/* Mobile hamburger — hidden on desktop since sidebar is always visible there */}
         <button
           onClick={toggleMobileSidebar}
           className="md:hidden p-2 -ml-2 rounded-xl text-gray-400 hover:text-white hover:bg-[#374151] transition-colors"
@@ -27,7 +51,6 @@ export function Navbar({ title }: NavbarProps) {
 
         <h1 className="font-semibold text-white text-base md:text-lg flex-1 truncate">{title}</h1>
 
-        {/* Notification bell */}
         <button onClick={() => setOpen(true)} className="relative p-2 rounded-xl text-gray-400 hover:text-white hover:bg-[#374151] transition-colors">
           <Bell className="w-5 h-5" />
           {unreadCount > 0 && (
@@ -38,7 +61,6 @@ export function Navbar({ title }: NavbarProps) {
         </button>
       </header>
 
-      {/* Notification panel */}
       {open && (
         <div className="fixed inset-0 z-40 flex justify-end">
           <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
@@ -66,7 +88,7 @@ export function Navbar({ title }: NavbarProps) {
                 </div>
               ) : (
                 notifications.map(n => (
-                  <button key={n._id} onClick={() => handleMarkAsRead(n._id)}
+                  <button key={n._id} onClick={() => handleNotificationClick(n)}
                     className={cn(
                       'w-full text-left p-4 border-b border-[#374151]/50 hover:bg-[#374151]/30 transition-colors',
                       !n.isRead && 'bg-purple-500/5'

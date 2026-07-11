@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// Paths that don't require a logged-in user
-const PUBLIC_PATHS = ['/login', '/register'];
+// Paths that don't require a logged-in user.
+// FIX: /contact, /terms, /refund-policy, /pricing were missing — anyone
+// without a token (including a Cashfree reviewer, who will never be
+// logged in) was being bounced straight back to /login instead of seeing
+// these pages.
+const PUBLIC_PATHS = ['/login', '/register', '/contact', '/terms', '/refund-policy', '/pricing'];
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -14,15 +18,21 @@ export function middleware(req: NextRequest) {
 
   // ── Not logged in ──────────────────────────────────────────────────────────
   if (!token) {
-    if (isPublic) return NextResponse.next(); // Allow login/register pages
+    if (isPublic) return NextResponse.next(); // Allow login/register/compliance pages
     // Redirect everything else to login
     const url = req.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);
   }
 
-  // ── Already logged in visiting a public page ───────────────────────────────
-  if (isPublic && token && role) {
+  // ── Already logged in ───────────────────────────────────────────────────────
+  // FIX: previously ANY public path (including /contact, /terms, etc.) redirected
+  // a logged-in user straight to their dashboard — meaning a logged-in customer
+  // could never view the Terms or Contact page at all. Now only /login and
+  // /register redirect away when already authenticated; the compliance pages
+  // stay viewable for logged-in users too.
+  const isAuthOnlyPage = pathname.startsWith('/login') || pathname.startsWith('/register');
+  if (isAuthOnlyPage && token && role) {
     const url = req.nextUrl.clone();
     url.pathname = `/${role}/dashboard`;
     return NextResponse.redirect(url);

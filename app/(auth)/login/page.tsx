@@ -10,6 +10,7 @@ import { toast } from '@/components/ui/toast';
 import { useAuthStore } from '@/store/authStore';
 import { api } from '@/lib/api';
 import { initSocket } from '@/lib/socket';
+import { Footer } from '@/components/shared/Footer';
 
 export default function LoginPage() {
   const router  = useRouter();
@@ -39,7 +40,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0B1120] p-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[#0B1120] p-4">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
@@ -47,7 +48,7 @@ export default function LoginPage() {
             <Zap className="w-7 h-7 text-purple-400" />
           </div>
           <h1 className="text-3xl font-bold text-white">Welcome back</h1>
-          <p className="text-gray-400 mt-1 text-sm">Sign in to your Marketplace account</p>
+          <p className="text-gray-400 mt-1 text-sm">Sign in to your Mailzeon account</p>
         </div>
 
         {/* Card */}
@@ -92,6 +93,8 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+
+      <Footer />
     </div>
   );
 }

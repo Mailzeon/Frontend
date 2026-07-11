@@ -11,6 +11,7 @@ import { useAuthStore } from '@/store/authStore';
 import { api } from '@/lib/api';
 import { initSocket } from '@/lib/socket';
 import { cn, formatCurrency } from '@/lib/utils';
+import { Footer } from '@/components/shared/Footer';
 
 export default function RegisterPage() {
   const router  = useRouter();
@@ -21,9 +22,6 @@ export default function RegisterPage() {
   const [role, setRole]         = useState<'customer' | 'worker'>('customer');
   const [show, setShow]         = useState(false);
   const [loading, setLoading]   = useState(false);
-  // FIX: was hardcoded "₹20" in the worker role card — now reflects the
-  // live admin-configured worker earning. This page is public (no login
-  // yet), so it calls the unauthenticated /settings/public endpoint.
   const [workerEarning, setWorkerEarning] = useState<number | null>(null);
 
   useEffect(() => {
@@ -69,24 +67,23 @@ export default function RegisterPage() {
   const workerEarnLabel = workerEarning !== null ? formatCurrency(workerEarning) : '₹20';
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0B1120] p-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[#0B1120] p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="w-14 h-14 rounded-2xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center mx-auto mb-4">
             <Zap className="w-7 h-7 text-purple-400" />
           </div>
           <h1 className="text-3xl font-bold text-white">Create account</h1>
-          <p className="text-gray-400 mt-1 text-sm">Join Marketplace today</p>
+          <p className="text-gray-400 mt-1 text-sm">Join Mailzeon today</p>
         </div>
 
         <div className="glass-card p-8">
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Role picker */}
             <div className="space-y-1.5">
               <Label>I want to</Label>
               <div className="flex gap-3">
                 {roleCard('customer', User, 'Buy Services', 'Place orders & get results')}
-                {roleCard('worker', Briefcase, 'Work & Earn', `Complete orders & earn ${workerEarnLabel}`)}
+                {roleCard('worker', Briefcase, 'Work & Earn', `Complete orders & earn`)}
               </div>
             </div>
 
@@ -133,6 +130,8 @@ export default function RegisterPage() {
           </div>
         </div>
       </div>
+
+      <Footer />
     </div>
   );
 }

@@ -1,7 +1,10 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import { useParams }        from 'next/navigation';
-import { ArrowLeft, Clock, CheckCircle, AlertTriangle, RefreshCw, Star, XCircle, Mail, Eye, EyeOff, Copy, IndianRupee } from 'lucide-react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import {
+  ArrowLeft, Clock, CheckCircle, AlertTriangle, RefreshCw, Star, XCircle,
+  Mail, Eye, EyeOff, Copy, IndianRupee, CreditCard, Loader2
+} from 'lucide-react';
 import { Button }           from '@/components/ui/button';
 import { OrderStatusBadge } from '@/components/shared/OrderStatusBadge';
 import { Skeleton }         from '@/components/ui/skeleton';
@@ -34,6 +37,8 @@ const copyToClipboard = async (text: string, label: string) => {
 
 export default function CustomerOrderDetail() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [order,        setOrder]        = useState<Order | null>(null);
   const [loading,      setLoading]      = useState(true);
@@ -49,10 +54,13 @@ export default function CustomerOrderDetail() {
   const [submittingDispute, setSubmittingDispute] = useState(false);
   const [cancelling, setCancelling] = useState(false);
 
-  // NEW: refund request state
   const [showRefund, setShowRefund] = useState(false);
   const [refundUpi, setRefundUpi]   = useState('');
   const [submittingRefund, setSubmittingRefund] = useState(false);
+
+  // NEW: true while we're double-checking payment status right after the
+  // customer is redirected back from Cashfree's checkout page.
+  const [verifyingPayment, setVerifyingPayment] = useState(false);
 
   const fetchOrder = useCallback(async () => {
     try {
@@ -63,6 +71,31 @@ export default function CustomerOrderDetail() {
     } finally {
       setLoading(false);
     }
+  }, [id]);
+
+  // NEW: Cashfree redirects the customer back to this exact page with
+  // `?payment=return` appended. On seeing that, we ask our backend to
+  // verify the payment directly with Cashfree — this is a fast fallback
+  // in case the webhook (the real source of truth) hasn't arrived yet.
+  useEffect(() => {
+    const isPaymentReturn = searchParams.get('payment') === 'return';
+    if (!isPaymentReturn) return;
+
+    const verify = async () => {
+      setVerifyingPayment(true);
+      try {
+        await api.get(`/payments/verify/${id}`);
+      } catch {
+        // Non-fatal — the webhook may still resolve it; we just refetch below.
+      } finally {
+        // Strip the query param so a page refresh doesn't re-trigger this.
+        router.replace(`/customer/orders/${id}`);
+        await fetchOrder();
+        setVerifyingPayment(false);
+      }
+    };
+    verify();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   useEffect(() => {
@@ -150,7 +183,6 @@ export default function CustomerOrderDetail() {
     }
   };
 
-  // NEW: submit refund request with UPI ID
   const submitRefund = async () => {
     if (!refundUpi.trim()) { toast.error('Enter your UPI ID.'); return; }
     setSubmittingRefund(true);
@@ -170,6 +202,19 @@ export default function CustomerOrderDetail() {
     }
   };
 
+  // ── Loading states ─────────────────────────────────────────────────────────
+  if (verifyingPayment) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <div className="glass-card p-10 text-center space-y-4">
+          <Loader2 className="w-10 h-10 text-purple-400 mx-auto animate-spin" />
+          <p className="font-semibold text-white">Confirming your payment…</p>
+          <p className="text-sm text-gray-400">This will only take a moment. Please don't close this page.</p>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) return (
     <div className="max-w-2xl space-y-4">
       <Skeleton className="h-8 w-48" />
@@ -179,6 +224,8 @@ export default function CustomerOrderDetail() {
   );
   if (!order) return <div className="text-gray-400 p-4">Order not found.</div>;
 
+  const isPaymentPending = order.status === 'payment_pending';
+  const isPaymentFailed  = order.status === 'payment_failed';
   const isPending   = order.status === 'pending';
   const isAccepted  = order.status === 'accepted';
   const isCreds     = order.status === 'credentials_submitted';
@@ -187,7 +234,6 @@ export default function CustomerOrderDetail() {
   const isReview    = order.status === 'under_review';
   const isCancelled = order.status === 'cancelled';
 
-  // Credentials (email/password) exist from credentials_submitted state onward
   const hasCredentials = !!order.credentials?.password;
 
   return (
@@ -208,10 +254,12 @@ export default function CustomerOrderDetail() {
 
       {/* Order info */}
       <div className="glass-card p-5 grid grid-cols-2 gap-4 text-sm">
-        <div>
-          <p className="text-gray-500 text-xs">Amount Paid</p>
-          <p className="font-bold text-white text-lg">{formatCurrency(order.amount)}</p>
-        </div>
+        {order.amount !== undefined && (
+          <div>
+            <p className="text-gray-500 text-xs">Amount</p>
+            <p className="font-bold text-white text-lg">{formatCurrency(order.amount)}</p>
+          </div>
+        )}
         <div>
           <p className="text-gray-500 text-xs">Created</p>
           <p className="text-gray-300">{formatDate(order.createdAt)}</p>
@@ -228,12 +276,44 @@ export default function CustomerOrderDetail() {
             <p className="text-green-400">{formatDate(order.completedAt)}</p>
           </div>
         )}
+        {order.requestedEmail && (
+          <div className="col-span-2 pt-1 border-t border-[#374151]">
+            <p className="text-gray-500 text-xs flex items-center gap-1"><Mail className="w-3 h-3" /> Requested Email</p>
+            <p className="text-gray-300 font-mono text-sm break-all">{order.requestedEmail}</p>
+          </div>
+        )}
       </div>
 
-      {/* NEW (Issue 1 fix): Account details card — email + password the
-          worker created. This is the actual deliverable the customer paid
-          for, so it stays visible once submitted, regardless of the
-          order's later status (completed / under review / cancelled). */}
+      {/* NEW: Payment pending */}
+      {isPaymentPending && (
+        <div className="glass-card p-6 text-center space-y-4">
+          <CreditCard className="w-10 h-10 text-yellow-400 mx-auto animate-pulse-soft" />
+          <p className="font-semibold text-white">Payment Not Yet Confirmed</p>
+          <p className="text-sm text-gray-400">
+            If you completed the payment and this still shows pending, it should update automatically within a minute.
+            You can also refresh this page.
+          </p>
+          <Button variant="outline" onClick={() => fetchOrder()}>
+            <RefreshCw className="w-4 h-4 mr-2" /> Refresh Status
+          </Button>
+        </div>
+      )}
+
+      {/* NEW: Payment failed */}
+      {isPaymentFailed && (
+        <div className="glass-card p-6 text-center space-y-4 border border-red-500/20">
+          <XCircle className="w-10 h-10 text-red-400 mx-auto" />
+          <p className="font-semibold text-white">Payment Failed</p>
+          <p className="text-sm text-gray-400">
+            Your payment for this order did not go through, so it was never charged. Please place a new order to try again.
+          </p>
+          <Link href="/customer/orders">
+            <Button variant="outline">Back to Orders</Button>
+          </Link>
+        </div>
+      )}
+
+      {/* Account details card */}
       {hasCredentials && (
         <div className="glass-card p-5 border border-blue-500/20 bg-blue-500/5 space-y-3">
           <div className="flex items-center gap-2">
@@ -398,7 +478,7 @@ export default function CustomerOrderDetail() {
         </div>
       )}
 
-      {/* Cancelled — NEW: full refund flow */}
+      {/* Cancelled — full refund flow */}
       {isCancelled && (
         <div className="glass-card p-6 text-center space-y-4">
           <XCircle className="w-10 h-10 text-gray-500 mx-auto" />
@@ -409,19 +489,19 @@ export default function CustomerOrderDetail() {
 
           {order.refundEligible && (
             <Button onClick={() => setShowRefund(true)}>
-              <IndianRupee className="w-4 h-4 mr-2" /> Request Refund — {formatCurrency(order.amount)}
+              <IndianRupee className="w-4 h-4 mr-2" /> Request Refund{order.amount !== undefined ? ` — ${formatCurrency(order.amount)}` : ''}
             </Button>
           )}
 
           {order.refundStatus === 'pending' && (
             <div className="p-3 rounded-xl bg-yellow-500/5 border border-yellow-500/20 text-sm text-yellow-400">
-              ⏳ Refund request submitted. Your {formatCurrency(order.amount)} refund is being processed — this typically takes 24–48 hours.
+              ⏳ Refund request submitted. Your refund is being processed — this typically takes 24–48 hours.
             </div>
           )}
 
           {order.refundStatus === 'completed' && (
             <div className="p-3 rounded-xl bg-green-500/5 border border-green-500/20 text-sm text-green-400">
-              ✅ Refunded successfully! {formatCurrency(order.amount)} has been sent to your UPI ID.
+              ✅ Refunded successfully! The amount has been sent to your UPI ID.
             </div>
           )}
 
@@ -451,14 +531,16 @@ export default function CustomerOrderDetail() {
         </DialogContent>
       </Dialog>
 
-      {/* NEW: Refund request modal */}
+      {/* Refund request modal */}
       <Dialog open={showRefund} onOpenChange={setShowRefund}>
         <DialogContent>
           <DialogHeader><DialogTitle>Request Refund</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div className="p-3 rounded-xl bg-green-500/5 border border-green-500/20 text-sm text-gray-300">
-              Refund amount: <span className="text-green-400 font-bold">{formatCurrency(order.amount)}</span>
-            </div>
+            {order.amount !== undefined && (
+              <div className="p-3 rounded-xl bg-green-500/5 border border-green-500/20 text-sm text-gray-300">
+                Refund amount: <span className="text-green-400 font-bold">{formatCurrency(order.amount)}</span>
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label>Your UPI ID</Label>
               <Input

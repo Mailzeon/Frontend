@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Save, IndianRupee, Clock, Timer } from 'lucide-react';
+import { Settings as SettingsIcon, Save, IndianRupee, Clock, Timer, Percent } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,14 +17,20 @@ interface SettingDoc {
   updatedAt: string;
 }
 
-// Defines display order, labels, icons, and units for each known setting key.
-// Any settings key not listed here still renders using a generic fallback.
-const SETTING_META: Record<string, { label: string; icon: React.ElementType; suffix: string; order: number }> = {
-  orderPrice:         { label: 'Order Price',              icon: IndianRupee, suffix: '₹',       order: 1 },
-  workerEarning:      { label: 'Worker Earning',           icon: IndianRupee, suffix: '₹',       order: 2 },
-  orderTimerMinutes:  { label: 'Credential Timer',         icon: Timer,       suffix: 'minutes', order: 3 },
-  autoCompleteHours:  { label: 'Auto-Complete Window',     icon: Clock,       suffix: 'hours',    order: 4 },
+// REWORKED: 'orderPrice' and 'workerEarning' are gone (customer now sets
+// their own order amount). Replaced with 'minimumOrderAmount' and
+// 'platformCommissionRate'. Only keys listed here are ever displayed —
+// this also means any old orphaned 'orderPrice'/'workerEarning' documents
+// still sitting in the database (from before this change) are simply
+// hidden from view rather than confusingly shown as editable.
+const SETTING_META: Record<string, { label: string; icon: React.ElementType; suffix: string; order: number; max?: number }> = {
+  minimumOrderAmount:     { label: 'Minimum Order Amount',   icon: IndianRupee, suffix: '₹',       order: 1 },
+  platformCommissionRate: { label: 'Platform Commission',    icon: Percent,     suffix: '%',       order: 2, max: 100 },
+  orderTimerMinutes:      { label: 'Credential Timer',       icon: Timer,       suffix: 'minutes', order: 3 },
+  autoCompleteHours:      { label: 'Auto-Complete Window',   icon: Clock,       suffix: 'hours',   order: 4 },
 };
+
+const KNOWN_KEYS = Object.keys(SETTING_META);
 
 export default function AdminSettingsPage() {
   const [settings, setSettings] = useState<SettingDoc[]>([]);
@@ -36,11 +42,11 @@ export default function AdminSettingsPage() {
     try {
       const { data } = await api.get('/admin/settings');
       if (data.success) {
-        const sorted = [...data.data].sort((a: SettingDoc, b: SettingDoc) => {
-          const oa = SETTING_META[a.key]?.order ?? 99;
-          const ob = SETTING_META[b.key]?.order ?? 99;
-          return oa - ob;
-        });
+        // Only show settings we actively use — hides orphaned legacy keys
+        const known = data.data.filter((s: SettingDoc) => KNOWN_KEYS.includes(s.key));
+        const sorted = known.sort((a: SettingDoc, b: SettingDoc) =>
+          SETTING_META[a.key].order - SETTING_META[b.key].order
+        );
         setSettings(sorted);
       }
     } catch {
@@ -62,8 +68,14 @@ export default function AdminSettingsPage() {
       toast.error('Value cannot be empty.');
       return;
     }
-    if (isNaN(Number(newValue)) || Number(newValue) <= 0) {
+    const numValue = Number(newValue);
+    if (isNaN(numValue) || numValue <= 0) {
       toast.error('Value must be a positive number.');
+      return;
+    }
+    const max = SETTING_META[key]?.max;
+    if (max !== undefined && numValue > max) {
+      toast.error(`Value cannot exceed ${max}.`);
       return;
     }
 
@@ -71,7 +83,7 @@ export default function AdminSettingsPage() {
     try {
       const { data } = await api.put(`/admin/settings/${key}`, { value: newValue.trim() });
       if (data.success) {
-        toast.success('Setting updated. Takes effect immediately.');
+        toast.success('Setting updated. Takes effect immediately for new orders.');
         setSettings(prev => prev.map(s => s.key === key ? { ...s, value: newValue.trim(), updatedAt: new Date().toISOString() } : s));
         setEdited(prev => { const p = { ...prev }; delete p[key]; return p; });
       }
@@ -107,7 +119,7 @@ export default function AdminSettingsPage() {
       ) : (
         <div className="space-y-4">
           {settings.map(s => {
-            const meta = SETTING_META[s.key] ?? { label: s.key, icon: SettingsIcon, suffix: '', order: 99 };
+            const meta = SETTING_META[s.key];
             const Icon = meta.icon;
             const currentValue = edited[s.key] ?? s.value;
             const hasChanged   = edited[s.key] !== undefined && edited[s.key] !== s.value;
@@ -126,10 +138,11 @@ export default function AdminSettingsPage() {
 
                 <div className="flex items-end gap-3">
                   <div className="flex-1 space-y-1.5">
-                    <Label>Current value ({meta.suffix || 'value'})</Label>
+                    <Label>Current value ({meta.suffix})</Label>
                     <Input
                       type="number"
                       min="1"
+                      max={meta.max}
                       value={currentValue}
                       onChange={e => handleChange(s.key, e.target.value)}
                     />
@@ -152,8 +165,8 @@ export default function AdminSettingsPage() {
 
       <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/20">
         <p className="text-sm text-blue-400">
-          ℹ️ Settings changes take effect within seconds — the backend cache refreshes automatically on save.
-          Orders already in progress are not affected; only new actions use the updated values.
+          ℹ️ Customers now set their own order amount (minimum enforced here). The commission rate is
+          locked in per-order at creation time — changing it here only affects orders placed afterward.
         </p>
       </div>
     </div>

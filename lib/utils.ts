@@ -44,6 +44,8 @@ export function shortId(id: string): string {
 
 /** Human-readable labels for each order status. */
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
+  payment_pending:        'Awaiting Payment',   // NEW
+  payment_failed:         'Payment Failed',     // NEW
   pending:                'Pending',
   accepted:               'Accepted',
   credentials_submitted:  'Credentials Submitted',
@@ -56,6 +58,8 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
 
 /** CSS class name for each order status badge. */
 export const ORDER_STATUS_CLASS: Record<OrderStatus, string> = {
+  payment_pending:       'badge-pending',    // NEW — reuses existing yellow/pulsing style
+  payment_failed:        'badge-cancelled',  // NEW — reuses existing gray "terminal" style
   pending:               'badge-pending',
   accepted:              'badge-accepted',
   credentials_submitted: 'badge-credentials',

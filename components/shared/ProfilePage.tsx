@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { User as UserIcon, Lock, Save, Wallet } from 'lucide-react';
+import { User as UserIcon, Lock, Save, Wallet, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,6 +18,9 @@ export function ProfilePage({ showPaymentDetails = false }: ProfilePageProps) {
 
   // ── Profile info form ─────────────────────────────────────────────────────
   const [name, setName]           = useState(user?.name ?? '');
+  // NEW: phone — required by Cashfree before a customer can place an order.
+  // Editable here so it can be set up-front instead of only at checkout time.
+  const [phone, setPhone]         = useState(user?.phone ?? '');
   const [savingProfile, setSavingProfile] = useState(false);
 
   // ── Password change form ──────────────────────────────────────────────────
@@ -33,11 +36,18 @@ export function ProfilePage({ showPaymentDetails = false }: ProfilePageProps) {
   const saveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) { toast.error('Name cannot be empty.'); return; }
+    if (phone.trim() && !/^[6-9]\d{9}$/.test(phone.trim())) {
+      toast.error('Enter a valid 10-digit Indian mobile number.');
+      return;
+    }
     setSavingProfile(true);
     try {
-      const { data } = await api.put('/users/profile', { name: name.trim() });
+      const { data } = await api.put('/users/profile', {
+        name: name.trim(),
+        ...(phone.trim() ? { phone: phone.trim() } : {}),
+      });
       if (data.success) {
-        updateUser({ name: name.trim() });
+        updateUser({ name: name.trim(), phone: phone.trim() || user?.phone });
         toast.success('Profile updated successfully.');
       }
     } catch (err: any) {
@@ -105,6 +115,21 @@ export function ProfilePage({ showPaymentDetails = false }: ProfilePageProps) {
             <Label>Email address</Label>
             <Input value={user?.email ?? ''} disabled className="opacity-60 cursor-not-allowed" />
             <p className="text-xs text-gray-500">Email cannot be changed.</p>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="flex items-center gap-1.5">
+              <Phone className="w-3.5 h-3.5" /> Phone number
+            </Label>
+            <Input
+              type="tel"
+              placeholder="9876543210"
+              value={phone}
+              onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+              maxLength={10}
+            />
+            <p className="text-xs text-gray-500">
+              Required to place orders — used by our payment partner to process your payment.
+            </p>
           </div>
           <div className="flex justify-end">
             <Button type="submit" loading={savingProfile}>

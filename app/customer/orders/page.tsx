@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { ShoppingBag, Plus, Shuffle, Edit3, Check } from 'lucide-react';
+import { ShoppingBag, Plus, Shuffle, Edit3, Check, IndianRupee, Phone } from 'lucide-react';
 import { OrderStatusBadge } from '@/components/shared/OrderStatusBadge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -11,20 +11,24 @@ import { toast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
 import { shortId, timeAgo, formatCurrency, cn } from '@/lib/utils';
 import { EMAIL_DOMAINS } from '@/lib/emailDomains';
+import { openCashfreeCheckout } from '@/lib/cashfree';
+import { useAuthStore } from '@/store/authStore';
 import { Order } from '@/types';
 import Link from 'next/link';
 
 export default function CustomerOrdersPage() {
+  const { user, updateUser } = useAuthStore();
   const [orders, setOrders]     = useState<Order[]>([]);
   const [loading, setLoading]   = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [service, setService]   = useState('');
   const [creating, setCreating] = useState(false);
-  const [orderPrice, setOrderPrice] = useState<number | null>(null);
 
-  const [domain, setDomain]         = useState('');
-  const [emailType, setEmailType]   = useState<'random' | 'custom'>('random');
+  const [service, setService]     = useState('');
+  const [domain, setDomain]       = useState('');
+  const [emailType, setEmailType] = useState<'random' | 'custom'>('random');
   const [customLocal, setCustomLocal] = useState('');
+  const [amount, setAmount]       = useState('');
+  const [phone, setPhone]         = useState('');
 
   const fetchOrders = async () => {
     try {
@@ -34,15 +38,11 @@ export default function CustomerOrdersPage() {
     finally { setLoading(false); }
   };
 
-  useEffect(() => {
-    fetchOrders();
-    api.get('/settings/public')
-      .then(({ data }) => { if (data.success) setOrderPrice(data.data.orderPrice); })
-      .catch(() => setOrderPrice(50));
-  }, []);
+  useEffect(() => { fetchOrders(); }, []);
 
   const resetModal = () => {
     setService(''); setDomain(''); setEmailType('random'); setCustomLocal('');
+    setAmount(''); setPhone('');
   };
 
   const createOrder = async (e: React.FormEvent) => {
@@ -50,6 +50,9 @@ export default function CustomerOrdersPage() {
     if (!service.trim()) { toast.error('Enter a service name.'); return; }
     if (!domain) { toast.error('Select an email domain.'); return; }
     if (emailType === 'custom' && !customLocal.trim()) { toast.error('Enter your custom email name.'); return; }
+    const numAmount = Number(amount);
+    if (!amount || isNaN(numAmount) || numAmount < 15) { toast.error('Minimum order amount is ₹15.'); return; }
+    if (!user?.phone && !/^[6-9]\d{9}$/.test(phone)) { toast.error('Enter a valid 10-digit phone number.'); return; }
 
     setCreating(true);
     try {
@@ -58,17 +61,21 @@ export default function CustomerOrdersPage() {
         domain,
         emailType,
         customLocalPart: emailType === 'custom' ? customLocal.trim() : undefined,
+        amount: numAmount,
+        ...(user?.phone ? {} : { phone }),
       });
+
       if (data.success) {
-        toast.success('Order placed!');
-        setShowModal(false); resetModal();
-        fetchOrders();
+        if (!user?.phone && phone) updateUser({ phone });
+        toast.success('Redirecting to payment…');
+        await openCashfreeCheckout(data.data.paymentSessionId);
       }
-    } catch (err: any) { toast.error(err.response?.data?.message || 'Failed.'); }
-    finally { setCreating(false); }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to create order.');
+      setCreating(false);
+    }
   };
 
-  const priceLabel = orderPrice !== null ? formatCurrency(orderPrice) : '...';
   const previewEmail = domain && emailType === 'custom' && customLocal.trim()
     ? `${customLocal.trim().toLowerCase()}@${domain}`
     : null;
@@ -81,7 +88,7 @@ export default function CustomerOrdersPage() {
           <p className="text-gray-400 text-sm mt-0.5">{orders.length} order{orders.length !== 1 ? 's' : ''} total</p>
         </div>
         <Button onClick={() => setShowModal(true)}>
-          <Plus className="w-4 h-4 mr-2" /> New Order — {priceLabel}
+          <Plus className="w-4 h-4 mr-2" /> New Order
         </Button>
       </div>
 
@@ -108,7 +115,7 @@ export default function CustomerOrdersPage() {
                 <tr key={o._id} className="hover:bg-[#374151]/20 transition-colors">
                   <td className="px-4 py-3 font-mono text-gray-400 text-xs">{shortId(o._id)}</td>
                   <td className="px-4 py-3 text-white font-medium max-w-[180px] truncate">{o.serviceName}</td>
-                  <td className="px-4 py-3 text-gray-300">{formatCurrency(o.amount)}</td>
+                  <td className="px-4 py-3 text-gray-300">{o.amount !== undefined ? formatCurrency(o.amount) : '—'}</td>
                   <td className="px-4 py-3"><OrderStatusBadge status={o.status} /></td>
                   <td className="px-4 py-3 text-gray-500">{timeAgo(o.createdAt)}</td>
                   <td className="px-4 py-3">
@@ -126,14 +133,26 @@ export default function CustomerOrdersPage() {
         <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Place New Order</DialogTitle></DialogHeader>
           <form onSubmit={createOrder} className="space-y-4">
-            <div className="p-4 rounded-xl bg-purple-500/5 border border-purple-500/20 text-sm text-gray-300">
-              You will be charged <span className="text-purple-400 font-bold">{priceLabel}</span>. A worker will complete your order.
-            </div>
-
             <div className="space-y-1.5">
               <Label>Service description</Label>
               <Input placeholder="e.g. Instagram login verification" value={service}
                 onChange={e => setService(e.target.value)} autoFocus />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5">
+                <IndianRupee className="w-3.5 h-3.5" /> Order amount
+              </Label>
+              <Input
+                type="number"
+                min="15"
+                placeholder="Minimum ₹15"
+                value={amount}
+                onChange={e => setAmount(e.target.value)}
+              />
+              <p className="text-xs text-gray-500">
+                85% goes to the worker who completes your order, 15% is the platform fee.
+              </p>
             </div>
 
             <div className="space-y-1.5">
@@ -202,9 +221,27 @@ export default function CustomerOrdersPage() {
               <p className="text-xs text-gray-500">A random email address will be generated automatically on @{domain}.</p>
             )}
 
+            {!user?.phone && (
+              <div className="space-y-1.5">
+                <Label className="flex items-center gap-1.5">
+                  <Phone className="w-3.5 h-3.5" /> Phone number
+                </Label>
+                <Input
+                  type="tel"
+                  placeholder="9876543210"
+                  value={phone}
+                  onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  maxLength={10}
+                />
+                <p className="text-xs text-gray-500">Required by our payment partner. Saved to your profile for next time.</p>
+              </div>
+            )}
+
             <div className="flex gap-3 justify-end pt-1">
               <Button type="button" variant="outline" onClick={() => setShowModal(false)}>Cancel</Button>
-              <Button type="submit" loading={creating}>Place Order — {priceLabel}</Button>
+              <Button type="submit" loading={creating}>
+                {amount ? `Pay ${formatCurrency(Number(amount) || 0)} & Place Order` : 'Continue to Payment'}
+              </Button>
             </div>
           </form>
         </DialogContent>

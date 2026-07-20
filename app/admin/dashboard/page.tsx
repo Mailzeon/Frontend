@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Users, ShoppingBag, Wallet, AlertTriangle, TrendingUp, Activity, Clock, Undo2 } from 'lucide-react';
+import { Users, ShoppingBag, Wallet, AlertTriangle, TrendingUp, Activity, Clock, Undo2, Percent } from 'lucide-react';
 import { StatCard } from '@/components/shared/StatCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/toast';
@@ -8,7 +8,7 @@ import { api } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import {
   LineChart, Line, AreaChart, Area,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
 
 const TOOLTIP_STYLE = {
@@ -69,36 +69,42 @@ export default function AdminDashboard() {
         <p className="text-gray-400 text-sm mt-0.5">Real-time platform overview</p>
       </div>
 
-      {/* Revenue stats */}
+      {/* Revenue stats — NEW: gross revenue vs platform's actual commission earned */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Total Revenue"  value={formatCurrency(stats?.totalRevenue ?? 0)} icon={TrendingUp}  color="green"  />
-        <StatCard title="Today Revenue"  value={formatCurrency(stats?.todayRevenue  ?? 0)} icon={Activity}   color="blue"   />
-        <StatCard title="Total Orders"   value={stats?.totalOrders  ?? 0}                  icon={ShoppingBag} color="purple" />
-        <StatCard title="Today Orders"   value={stats?.todayOrders  ?? 0}                  icon={Clock}       color="yellow" />
+        <StatCard title="Gross Revenue (Total)" value={formatCurrency(stats?.totalRevenue ?? 0)}    icon={TrendingUp} color="green"  />
+        <StatCard title="Gross Revenue (Today)" value={formatCurrency(stats?.todayRevenue ?? 0)}    icon={Activity}   color="blue"   />
+        <StatCard title="Commission Earned (Total)" value={formatCurrency(stats?.totalCommission ?? 0)} icon={Percent} color="purple" />
+        <StatCard title="Commission Earned (Today)" value={formatCurrency(stats?.todayCommission ?? 0)} icon={Percent} color="yellow" />
       </div>
 
-      {/* User + activity stats */}
+      {/* Order stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard title="Total Orders"   value={stats?.totalOrders  ?? 0}    icon={ShoppingBag}  color="purple" />
+        <StatCard title="Today Orders"   value={stats?.todayOrders  ?? 0}    icon={Clock}        color="yellow" />
+        <StatCard title="Pending Orders" value={stats?.pendingOrders ?? 0}   icon={Clock}         color="yellow" />
+        <StatCard title="Online Now"     value={stats?.onlineWorkers ?? 0}   icon={Activity}      color="green"  />
+      </div>
+
+      {/* User stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title="Customers"           value={stats?.totalCustomers    ?? 0} icon={Users}         color="purple" />
         <StatCard title="Workers"             value={stats?.totalWorkers      ?? 0} icon={Users}         color="blue"   />
-        <StatCard title="Online Now"          value={stats?.onlineWorkers     ?? 0} icon={Activity}      color="green"  />
-        <StatCard title="Pending Orders"      value={stats?.pendingOrders     ?? 0} icon={Clock}         color="yellow" />
-      </div>
-
-      {/* Alert stats — NEW: added Pending Refunds */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         <StatCard title="Pending Withdrawals" value={stats?.pendingWithdrawals ?? 0} icon={Wallet}        color="yellow" />
         <StatCard title="Pending Refunds"     value={stats?.pendingRefunds     ?? 0} icon={Undo2}         color="yellow" />
-        <StatCard title="Open Disputes"       value={stats?.openDisputes       ?? 0} icon={AlertTriangle} color="red"    />
+      </div>
+
+      {/* Alert stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <StatCard title="Open Disputes" value={stats?.openDisputes ?? 0} icon={AlertTriangle} color="red" />
       </div>
 
       {/* REAL-TIME CHARTS */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
 
-        {/* Revenue Chart */}
+        {/* Revenue vs Commission Chart */}
         <div className="glass-card p-5">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-white">Revenue — Last 7 Days</h2>
+            <h2 className="font-semibold text-white">Revenue & Commission — Last 7 Days</h2>
             <span className="text-xs text-gray-500">Live from DB</span>
           </div>
           {analytics.length === 0 ? (
@@ -106,21 +112,26 @@ export default function AdminDashboard() {
               No completed orders yet — chart will populate as orders complete.
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height={200}>
+            <ResponsiveContainer width="100%" height={220}>
               <AreaChart data={analytics}>
                 <defs>
                   <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%"  stopColor="#8B5CF6" stopOpacity={0.3} />
                     <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0}   />
                   </linearGradient>
+                  <linearGradient id="commissionGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor="#22C55E" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#22C55E" stopOpacity={0}   />
+                  </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                 <XAxis dataKey="day"     tick={{ fill: '#9CA3AF', fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: '#9CA3AF', fontSize: 11 }} axisLine={false} tickLine={false}
                   tickFormatter={v => `₹${v}`} />
-                <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [`₹${v}`, 'Revenue']} />
-                <Area type="monotone" dataKey="revenue" stroke="#8B5CF6" strokeWidth={2}
-                  fill="url(#revenueGrad)" dot={{ fill: '#8B5CF6', r: 3 }} />
+                <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [`₹${v}`]} />
+                <Legend wrapperStyle={{ fontSize: '12px' }} />
+                <Area type="monotone" dataKey="revenue"    name="Gross Revenue" stroke="#8B5CF6" strokeWidth={2} fill="url(#revenueGrad)" />
+                <Area type="monotone" dataKey="commission" name="Commission"    stroke="#22C55E" strokeWidth={2} fill="url(#commissionGrad)" />
               </AreaChart>
             </ResponsiveContainer>
           )}
@@ -137,13 +148,13 @@ export default function AdminDashboard() {
               No orders yet — chart will populate as orders are created.
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height={200}>
+            <ResponsiveContainer width="100%" height={220}>
               <LineChart data={analytics}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                 <XAxis dataKey="day" tick={{ fill: '#9CA3AF', fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: '#9CA3AF', fontSize: 11 }} axisLine={false} tickLine={false}
                   allowDecimals={false} />
-                <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [v, 'Orders']} />
+                <Tooltip {...TOOLTIP_STYLE} />
                 <Line type="monotone" dataKey="orders" stroke="#3B82F6" strokeWidth={2}
                   dot={{ fill: '#3B82F6', r: 3 }} activeDot={{ r: 5 }} />
               </LineChart>

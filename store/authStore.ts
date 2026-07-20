@@ -11,6 +11,10 @@ export interface AuthUser {
   isOnline?:   boolean;
   level?:      'bronze' | 'silver' | 'gold';
   profileImage?: string;
+  // NEW: required by Cashfree at order-creation time. Once saved, the
+  // customer never has to re-enter it — order.service.ts on the backend
+  // reuses whatever's on file.
+  phone?:      string;
 }
 
 interface AuthState {
@@ -63,7 +67,6 @@ export const useAuthStore = create<AuthState>()(
     {
       name:    'mp_auth-storage',
       storage: createJSONStorage(() =>
-        // Safe fallback for SSR — Zustand hydrates on client only
         typeof window !== 'undefined'
           ? localStorage
           : {

@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { ShoppingBag, CheckCircle, Clock, AlertTriangle, Plus, Shuffle, Edit3, Check } from 'lucide-react';
+import { ShoppingBag, CheckCircle, Clock, AlertTriangle, Plus, Shuffle, Edit3, Check, IndianRupee, Phone } from 'lucide-react';
 import { StatCard } from '@/components/shared/StatCard';
 import { OrderStatusBadge } from '@/components/shared/OrderStatusBadge';
 import { Button } from '@/components/ui/button';
@@ -12,20 +12,26 @@ import { toast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
 import { shortId, timeAgo, formatCurrency, cn } from '@/lib/utils';
 import { EMAIL_DOMAINS } from '@/lib/emailDomains';
+import { openCashfreeCheckout } from '@/lib/cashfree';
+import { useAuthStore } from '@/store/authStore';
 import { Order } from '@/types';
 import Link from 'next/link';
 
 export default function CustomerDashboard() {
+  const { user, updateUser } = useAuthStore();
   const [orders, setOrders]     = useState<Order[]>([]);
   const [loading, setLoading]   = useState(true);
   const [creating, setCreating] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  const [service, setService]   = useState('');
-  const [orderPrice, setOrderPrice] = useState<number | null>(null);
 
-  const [domain, setDomain]         = useState('');
-  const [emailType, setEmailType]   = useState<'random' | 'custom'>('random');
+  const [service, setService]     = useState('');
+  const [domain, setDomain]       = useState('');
+  const [emailType, setEmailType] = useState<'random' | 'custom'>('random');
   const [customLocal, setCustomLocal] = useState('');
+  // NEW: customer sets their own order amount now (was a fixed admin price before)
+  const [amount, setAmount]       = useState('');
+  // NEW: only asked for if not already saved on the customer's profile
+  const [phone, setPhone]         = useState('');
 
   const fetch = async () => {
     try {
@@ -35,22 +41,18 @@ export default function CustomerDashboard() {
     finally { setLoading(false); }
   };
 
-  useEffect(() => {
-    fetch();
-    api.get('/settings/public')
-      .then(({ data }) => { if (data.success) setOrderPrice(data.data.orderPrice); })
-      .catch(() => setOrderPrice(50));
-  }, []);
+  useEffect(() => { fetch(); }, []);
 
   const stats = {
     total:     orders.length,
     completed: orders.filter(o => o.status === 'completed').length,
-    active:    orders.filter(o => !['completed','cancelled'].includes(o.status)).length,
+    active:    orders.filter(o => !['completed','cancelled','payment_failed'].includes(o.status)).length,
     disputes:  orders.filter(o => o.status === 'under_review').length,
   };
 
   const resetModal = () => {
     setService(''); setDomain(''); setEmailType('random'); setCustomLocal('');
+    setAmount(''); setPhone('');
   };
 
   const createOrder = async (e: React.FormEvent) => {
@@ -58,6 +60,9 @@ export default function CustomerDashboard() {
     if (!service.trim()) { toast.error('Enter a service name.'); return; }
     if (!domain) { toast.error('Select an email domain.'); return; }
     if (emailType === 'custom' && !customLocal.trim()) { toast.error('Enter your custom email name.'); return; }
+    const numAmount = Number(amount);
+    if (!amount || isNaN(numAmount) || numAmount < 15) { toast.error('Minimum order amount is ₹15.'); return; }
+    if (!user?.phone && !/^[6-9]\d{9}$/.test(phone)) { toast.error('Enter a valid 10-digit phone number.'); return; }
 
     setCreating(true);
     try {
@@ -66,17 +71,26 @@ export default function CustomerDashboard() {
         domain,
         emailType,
         customLocalPart: emailType === 'custom' ? customLocal.trim() : undefined,
+        amount: numAmount,
+        ...(user?.phone ? {} : { phone }),
       });
+
       if (data.success) {
-        toast.success('Order placed! Workers will accept it shortly.');
-        setShowModal(false); resetModal();
-        fetch();
+        if (!user?.phone && phone) updateUser({ phone });
+        toast.success('Redirecting to payment…');
+        // Order is created but NOT yet in the marketplace — it only becomes
+        // visible to workers once Cashfree confirms the payment succeeded.
+        await openCashfreeCheckout(data.data.paymentSessionId);
+        // openCashfreeCheckout navigates the browser away to Cashfree's
+        // hosted page — code after this line does not run until the
+        // customer is redirected back (handled on the order detail page).
       }
-    } catch (err: any) { toast.error(err.response?.data?.message || 'Failed to create order.'); }
-    finally { setCreating(false); }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to create order.');
+      setCreating(false);
+    }
   };
 
-  const priceLabel = orderPrice !== null ? formatCurrency(orderPrice) : '...';
   const previewEmail = domain && emailType === 'custom' && customLocal.trim()
     ? `${customLocal.trim().toLowerCase()}@${domain}`
     : null;
@@ -89,7 +103,7 @@ export default function CustomerDashboard() {
           <p className="text-gray-400 text-sm mt-0.5">Track your orders and activity</p>
         </div>
         <Button onClick={() => setShowModal(true)}>
-          <Plus className="w-4 h-4 mr-2" /> New Order — {priceLabel}
+          <Plus className="w-4 h-4 mr-2" /> New Order
         </Button>
       </div>
 
@@ -125,7 +139,9 @@ export default function CustomerDashboard() {
                   <p className="text-xs text-gray-500">{shortId(o._id)} · {timeAgo(o.createdAt)}</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-gray-300">{formatCurrency(o.amount)}</span>
+                  {o.amount !== undefined && (
+                    <span className="text-sm font-medium text-gray-300">{formatCurrency(o.amount)}</span>
+                  )}
                   <OrderStatusBadge status={o.status} />
                 </div>
               </Link>
@@ -141,19 +157,28 @@ export default function CustomerDashboard() {
             <DialogTitle>Place New Order</DialogTitle>
           </DialogHeader>
           <form onSubmit={createOrder} className="space-y-4">
-            <div className="p-4 rounded-xl bg-purple-500/5 border border-purple-500/20">
-              <p className="text-sm text-gray-300">You will be charged <span className="text-purple-400 font-bold">{priceLabel}</span> for this order. A worker will complete it and you will receive credentials.</p>
-            </div>
-
             <div className="space-y-1.5">
               <Label>Service name / description</Label>
               <Input placeholder="e.g. Instagram login verification" value={service} onChange={e => setService(e.target.value)} autoFocus />
             </div>
 
-            {/* FIX (Issue 2): domain picker redesigned as a contained button
-                grid instead of a native dropdown — no portal, no overflow
-                risk, and visually consistent with the Random/Custom cards
-                below. */}
+            {/* NEW: customer sets their own order amount */}
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5">
+                <IndianRupee className="w-3.5 h-3.5" /> Order amount
+              </Label>
+              <Input
+                type="number"
+                min="15"
+                placeholder="Minimum ₹15"
+                value={amount}
+                onChange={e => setAmount(e.target.value)}
+              />
+              <p className="text-xs text-gray-500">
+                85% goes to the worker who completes your order, 15% is the platform fee.
+              </p>
+            </div>
+
             <div className="space-y-1.5">
               <Label>Email domain</Label>
               <div className="grid grid-cols-3 gap-2">
@@ -220,9 +245,28 @@ export default function CustomerDashboard() {
               <p className="text-xs text-gray-500">A random email address will be generated automatically on @{domain}.</p>
             )}
 
+            {/* NEW: phone — only asked once, then saved to profile */}
+            {!user?.phone && (
+              <div className="space-y-1.5">
+                <Label className="flex items-center gap-1.5">
+                  <Phone className="w-3.5 h-3.5" /> Phone number
+                </Label>
+                <Input
+                  type="tel"
+                  placeholder="9876543210"
+                  value={phone}
+                  onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  maxLength={10}
+                />
+                <p className="text-xs text-gray-500">Required by our payment partner. Saved to your profile for next time.</p>
+              </div>
+            )}
+
             <div className="flex gap-3 justify-end pt-1">
               <Button type="button" variant="outline" onClick={() => setShowModal(false)}>Cancel</Button>
-              <Button type="submit" loading={creating}>Place Order — {priceLabel}</Button>
+              <Button type="submit" loading={creating}>
+                {amount ? `Pay ${formatCurrency(Number(amount) || 0)} & Place Order` : 'Continue to Payment'}
+              </Button>
             </div>
           </form>
         </DialogContent>

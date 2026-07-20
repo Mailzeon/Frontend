@@ -4,6 +4,8 @@ export type WorkerLevel = 'bronze' | 'silver' | 'gold';
 
 // ─── Order ────────────────────────────────────────────────────────────────────
 export type OrderStatus =
+  | 'payment_pending'   // NEW: order created, awaiting Cashfree payment confirmation
+  | 'payment_failed'    // NEW: payment did not succeed — terminal state
   | 'pending'
   | 'accepted'
   | 'credentials_submitted'
@@ -18,13 +20,16 @@ export interface Order {
   customerId:              string;
   workerId?:               string;
   serviceName:             string;
-  amount:                  number;
+  // NOTE: `amount`, `platformCommission`, `commissionRate` are only present
+  // when the API response is customer- or admin-facing. The backend strips
+  // these entirely for worker-facing responses (marketplace list, worker's
+  // own order list/detail) — a worker only ever sees `workerEarning`.
+  amount?:                 number;
   workerEarning:           number;
+  platformCommission?:     number;
+  commissionRate?:         number;
   status:                  OrderStatus;
   requestedEmail?:         string;
-  // NEW (Issue 1 fix): the account credentials the worker submitted. Only
-  // present once status reaches 'credentials_submitted' or later. The
-  // customer legitimately needs this — it's the password to their account.
   credentials?: {
     email:    string;
     password: string;
@@ -38,8 +43,6 @@ export interface Order {
   completedAt?:            string;
   createdAt:               string;
   updatedAt:               string;
-  // NEW (Issue 3 — refund flow): only populated on the customer's own
-  // order-detail fetch, computed server-side, not stored on the document.
   refundEligible?:         boolean;
   refundStatus?:           'pending' | 'completed' | 'rejected' | null;
 }
@@ -98,7 +101,7 @@ export interface WithdrawRequest {
   createdAt:    string;
 }
 
-// ─── Refund (NEW) ─────────────────────────────────────────────────────────────
+// ─── Refund ───────────────────────────────────────────────────────────────────
 export type RefundStatus = 'pending' | 'completed' | 'rejected';
 
 export interface RefundRequestType {

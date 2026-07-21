@@ -17,7 +17,6 @@ export default function WorkerMarketplace() {
   const [orders, setOrders]       = useState<Order[]>([]);
   const [loading, setLoading]     = useState(true);
   const [accepting, setAccepting] = useState<string | null>(null);
-  const [workerEarning, setWorkerEarning] = useState<number | null>(null);
 
   const fetchOrders = useCallback(async () => {
     try {
@@ -29,9 +28,6 @@ export default function WorkerMarketplace() {
 
   useEffect(() => {
     fetchOrders();
-    api.get('/settings/public')
-      .then(({ data }) => { if (data.success) setWorkerEarning(data.data.workerEarning); })
-      .catch(() => setWorkerEarning(20));
 
     const socket = getSocket();
     if (!socket) return;
@@ -49,9 +45,6 @@ export default function WorkerMarketplace() {
       if (data.success) {
         toast.success('Order accepted! You have 10 minutes to submit credentials.');
         setOrders(prev => prev.filter(o => o._id !== orderId));
-        // FIX: was window.location.href (full page reload, destroyed all
-        // Zustand state including the socket connection). Now uses Next.js
-        // client-side navigation so the app state stays intact.
         router.push(`/worker/orders/${orderId}`);
       }
     } catch (err: any) {
@@ -60,15 +53,13 @@ export default function WorkerMarketplace() {
     } finally { setAccepting(null); }
   };
 
-  const earningLabel = workerEarning !== null ? formatCurrency(workerEarning) : '...';
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Marketplace</h1>
           <p className="text-gray-400 text-sm mt-0.5">
-            {orders.length} order{orders.length !== 1 ? 's' : ''} available · Earn {earningLabel} per order
+            {orders.length} order{orders.length !== 1 ? 's' : ''} available
           </p>
         </div>
         <Button variant="outline" onClick={fetchOrders}>Refresh</Button>
@@ -105,10 +96,14 @@ export default function WorkerMarketplace() {
                   <Zap className="w-4 h-4 text-purple-400 shrink-0" />
                   <p className="font-semibold text-white truncate">{o.serviceName}</p>
                 </div>
+                {/* FIX: removed "Customer pays {o.amount}" — the backend now
+                    correctly strips the customer's full amount from this
+                    worker-facing endpoint entirely, so `o.amount` is always
+                    undefined here. This line should never have shown that
+                    figure to workers in the first place — only their own
+                    workerEarning (85% share) below is meant to be visible. */}
                 <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
                   <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{timeAgo(o.createdAt)}</span>
-                  <span>·</span>
-                  <span>Customer pays {formatCurrency(o.amount)}</span>
                 </div>
                 {o.requestedEmail && (
                   <div className="flex items-center gap-1.5 mt-1.5 text-xs text-blue-400">

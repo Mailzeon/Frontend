@@ -13,6 +13,7 @@ import { api } from '@/lib/api';
 import { Order } from '@/types';
 import { getSocket, SOCKET_EVENTS } from '@/lib/socket';
 import { useOrderTimer } from '@/hooks/useOrderTimer';
+import { useSettingsStore } from '@/store/settingsStore';
 import Link from 'next/link';
 
 function TimerBadge({ expiresAt }: { expiresAt?: string }) {
@@ -33,6 +34,7 @@ function TimerBadge({ expiresAt }: { expiresAt?: string }) {
 
 export default function WorkerOrderDetail() {
   const { id } = useParams<{ id: string }>();
+  const { autoCompleteHours, fetchSettings } = useSettingsStore();
   const [order, setOrder]   = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
@@ -52,6 +54,7 @@ export default function WorkerOrderDetail() {
 
   useEffect(() => {
     fetchOrder();
+    fetchSettings();
     const socket = getSocket();
     if (!socket) return;
     socket.on(SOCKET_EVENTS.CODE_REQUESTED,     () => { toast.info('Customer requested a verification code!'); fetchOrder(); });
@@ -202,7 +205,7 @@ export default function WorkerOrderDetail() {
       {order.status === 'credentials_submitted' && (
         <div className="glass-card p-6 text-center space-y-2">
           <p className="font-semibold text-white">Credentials submitted ✓</p>
-          <p className="text-sm text-gray-400">Waiting for customer to confirm. Your earnings will be released once confirmed or after 24 hours.</p>
+          <p className="text-sm text-gray-400">Waiting for customer to confirm. Your earnings will be released once confirmed or after {autoCompleteHours} hours.</p>
         </div>
       )}
 

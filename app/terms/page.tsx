@@ -3,7 +3,35 @@ import Link from 'next/link';
 
 export const metadata = { title: 'Terms & Conditions' };
 
-export default function TermsPage() {
+// Always fetch fresh — this page quotes the live minimum order amount and
+// commission %, so it must never be statically cached at build time (same
+// reasoning as the pricing page).
+export const revalidate = 0;
+
+interface PublicSettings {
+  minimumOrderAmount: number;
+  platformCommissionRate: number;
+}
+
+const DEFAULTS: PublicSettings = { minimumOrderAmount: 15, platformCommissionRate: 15 };
+
+async function getSettings(): Promise<PublicSettings> {
+  try {
+    const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+    const res = await fetch(`${base}/settings/public`, { cache: 'no-store' });
+    const json = await res.json();
+    if (json.success) return json.data;
+  } catch {
+    // Fall through to defaults — this is a public compliance page, so it
+    // should never hard-fail just because the settings fetch failed.
+  }
+  return DEFAULTS;
+}
+
+export default async function TermsPage() {
+  const { minimumOrderAmount, platformCommissionRate } = await getSettings();
+  const workerShare = 100 - platformCommissionRate;
+
   return (
     <div className="min-h-screen bg-[#0B1120] p-4 md:p-8">
       <div className="max-w-3xl mx-auto space-y-8">
@@ -42,7 +70,7 @@ export default function TermsPage() {
             <h2 className="text-lg font-semibold text-white mb-2">3. How Orders Work</h2>
             <p>
               A Customer creates an order by specifying the service required and paying the order amount
-              (minimum ₹15) through our payment partner. Once payment is confirmed, the order becomes visible
+              (minimum ₹{minimumOrderAmount}) through our payment partner. Once payment is confirmed, the order becomes visible
               to Workers on the Platform. A Worker accepts the order, completes the task within the required
               time window, and submits the account details back to the Customer through the Platform.
             </p>
@@ -51,7 +79,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-lg font-semibold text-white mb-2">4. Platform Commission</h2>
             <p>
-              Mailzeon retains a platform commission of 15% of the order amount. The remaining 85% is credited
+              Mailzeon retains a platform commission of {platformCommissionRate}% of the order amount. The remaining {workerShare}% is credited
               to the Worker's wallet once the order is confirmed complete by the Customer, or automatically
               after the applicable auto-completion period.
             </p>

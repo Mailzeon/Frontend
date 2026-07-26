@@ -73,7 +73,8 @@ export default function AdminOrdersPage() {
             <p className="text-sm">No orders found.</p>
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[760px]">
             <thead>
               <tr className="border-b border-[#374151]">
                 {['ID','Service','Customer','Worker','Amount','Status','Date'].map(h => (
@@ -95,6 +96,7 @@ export default function AdminOrdersPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>

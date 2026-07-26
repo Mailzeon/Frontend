@@ -5,7 +5,10 @@ import { NextRequest, NextResponse } from 'next/server';
 // without a token (including a Cashfree reviewer, who will never be
 // logged in) was being bounced straight back to /login instead of seeing
 // these pages.
-const PUBLIC_PATHS = ['/login', '/register', '/contact', '/terms', '/refund-policy', '/pricing'];
+const PUBLIC_PATHS = [
+  '/login', '/register', '/contact', '/terms', '/refund-policy', '/pricing',
+  '/forgot-password', '/reset-password',
+];
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;

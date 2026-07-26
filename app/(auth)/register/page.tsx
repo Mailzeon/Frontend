@@ -8,27 +8,24 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/toast';
 import { useAuthStore } from '@/store/authStore';
+import { useSettingsStore } from '@/store/settingsStore';
 import { api } from '@/lib/api';
 import { initSocket } from '@/lib/socket';
-import { cn, formatCurrency } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { Footer } from '@/components/shared/Footer';
 
 export default function RegisterPage() {
   const router  = useRouter();
   const setAuth = useAuthStore(s => s.setAuth);
+  const { minimumOrderAmount, platformCommissionRate, fetchSettings } = useSettingsStore();
   const [name, setName]         = useState('');
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole]         = useState<'customer' | 'worker'>('customer');
   const [show, setShow]         = useState(false);
   const [loading, setLoading]   = useState(false);
-  const [workerEarning, setWorkerEarning] = useState<number | null>(null);
 
-  useEffect(() => {
-    api.get('/settings/public')
-      .then(({ data }) => { if (data.success) setWorkerEarning(data.data.workerEarning); })
-      .catch(() => setWorkerEarning(20));
-  }, []);
+  useEffect(() => { fetchSettings(); }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,7 +61,7 @@ export default function RegisterPage() {
     </button>
   );
 
-  const workerEarnLabel = workerEarning !== null ? formatCurrency(workerEarning) : '₹20';
+  const workerEarnLabel = `${100 - platformCommissionRate}%`;
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#0B1120] p-4">
@@ -113,6 +110,9 @@ export default function RegisterPage() {
               <div className="p-3 rounded-xl bg-yellow-500/5 border border-yellow-500/20">
                 <p className="text-xs text-yellow-400">
                   ⚠️ Worker accounts require admin approval before you can accept orders. You&apos;ll be notified once approved.
+                </p>
+                <p className="text-xs text-yellow-400/80 mt-1">
+                  You keep {workerEarnLabel} of every order you complete (minimum order is ₹{minimumOrderAmount}).
                 </p>
               </div>
             )}

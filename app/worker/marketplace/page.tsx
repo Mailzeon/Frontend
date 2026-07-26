@@ -8,11 +8,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
+import { useSettingsStore } from '@/store/settingsStore';
 import { Order } from '@/types';
 import { getSocket, SOCKET_EVENTS } from '@/lib/socket';
 
 export default function WorkerMarketplace() {
   const { user } = useAuthStore();
+  const { orderTimerMinutes, fetchSettings } = useSettingsStore();
   const router = useRouter();
   const [orders, setOrders]       = useState<Order[]>([]);
   const [loading, setLoading]     = useState(true);
@@ -28,6 +30,7 @@ export default function WorkerMarketplace() {
 
   useEffect(() => {
     fetchOrders();
+    fetchSettings();
 
     const socket = getSocket();
     if (!socket) return;
@@ -43,7 +46,7 @@ export default function WorkerMarketplace() {
     try {
       const { data } = await api.patch(`/orders/${orderId}/accept`);
       if (data.success) {
-        toast.success('Order accepted! You have 10 minutes to submit credentials.');
+        toast.success(`Order accepted! You have ${orderTimerMinutes} minutes to submit credentials.`);
         setOrders(prev => prev.filter(o => o._id !== orderId));
         router.push(`/worker/orders/${orderId}`);
       }

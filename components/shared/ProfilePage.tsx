@@ -1,6 +1,6 @@
 'use client';
-import { useState } from 'react';
-import { User as UserIcon, Lock, Save, Wallet, Phone } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { User as UserIcon, Lock, Save, Wallet, Phone, Camera, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,6 +15,37 @@ interface ProfilePageProps {
 
 export function ProfilePage({ showPaymentDetails = false }: ProfilePageProps) {
   const { user, updateUser } = useAuthStore();
+
+  // ── Profile picture ───────────────────────────────────────────────────────
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // Allow re-selecting the same file next time
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) { toast.error('Please select an image file.'); return; }
+    if (file.size > 5 * 1024 * 1024) { toast.error('Image must be under 5MB.'); return; }
+
+    const formData = new FormData();
+    formData.append('image', file);
+
+    setUploadingImage(true);
+    try {
+      const { data } = await api.post('/users/profile-image', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      if (data.success) {
+        updateUser({ profileImage: data.data.profileImage });
+        toast.success('Profile picture updated.');
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to upload image.');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
 
   // ── Profile info form ─────────────────────────────────────────────────────
   const [name, setName]           = useState(user?.name ?? '');
@@ -98,6 +129,45 @@ export function ProfilePage({ showPaymentDetails = false }: ProfilePageProps) {
       <div>
         <h1 className="text-2xl font-bold text-white">Profile</h1>
         <p className="text-gray-400 text-sm mt-0.5">Manage your account details</p>
+      </div>
+
+      {/* Profile picture */}
+      <div className="glass-card p-5 flex items-center gap-4">
+        <div className="relative shrink-0">
+          <div className="w-20 h-20 rounded-full bg-purple-600/20 border-2 border-purple-500/30 flex items-center justify-center overflow-hidden">
+            {user?.profileImage ? (
+              <img src={user.profileImage} alt={user.name} className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-2xl font-semibold text-purple-300">
+                {user?.name?.charAt(0).toUpperCase()}
+              </span>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploadingImage}
+            className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-purple-600 hover:bg-purple-500 border-2 border-[#0B1120] flex items-center justify-center transition-colors disabled:opacity-60"
+            title="Change profile picture"
+          >
+            {uploadingImage ? (
+              <Loader2 className="w-3.5 h-3.5 text-white animate-spin" />
+            ) : (
+              <Camera className="w-3.5 h-3.5 text-white" />
+            )}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleImageSelect}
+            className="hidden"
+          />
+        </div>
+        <div>
+          <p className="font-semibold text-white">{user?.name}</p>
+          <p className="text-xs text-gray-500 mt-0.5">JPG, PNG or WEBP — max 5MB</p>
+        </div>
       </div>
 
       {/* Profile info */}

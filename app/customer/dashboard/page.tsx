@@ -14,11 +14,13 @@ import { shortId, timeAgo, formatCurrency, cn } from '@/lib/utils';
 import { EMAIL_DOMAINS } from '@/lib/emailDomains';
 import { openCashfreeCheckout } from '@/lib/cashfree';
 import { useAuthStore } from '@/store/authStore';
+import { useSettingsStore } from '@/store/settingsStore';
 import { Order } from '@/types';
 import Link from 'next/link';
 
 export default function CustomerDashboard() {
   const { user, updateUser } = useAuthStore();
+  const { minimumOrderAmount, platformCommissionRate, fetchSettings } = useSettingsStore();
   const [orders, setOrders]     = useState<Order[]>([]);
   const [loading, setLoading]   = useState(true);
   const [creating, setCreating] = useState(false);
@@ -41,7 +43,7 @@ export default function CustomerDashboard() {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { fetch(); }, []);
+  useEffect(() => { fetch(); fetchSettings(); }, []);
 
   const stats = {
     total:     orders.length,
@@ -61,7 +63,10 @@ export default function CustomerDashboard() {
     if (!domain) { toast.error('Select an email domain.'); return; }
     if (emailType === 'custom' && !customLocal.trim()) { toast.error('Enter your custom email name.'); return; }
     const numAmount = Number(amount);
-    if (!amount || isNaN(numAmount) || numAmount < 15) { toast.error('Minimum order amount is ₹15.'); return; }
+    if (!amount || isNaN(numAmount) || numAmount < minimumOrderAmount) {
+      toast.error(`Minimum order amount is ₹${minimumOrderAmount}.`);
+      return;
+    }
     if (!user?.phone && !/^[6-9]\d{9}$/.test(phone)) { toast.error('Enter a valid 10-digit phone number.'); return; }
 
     setCreating(true);
@@ -169,13 +174,13 @@ export default function CustomerDashboard() {
               </Label>
               <Input
                 type="number"
-                min="15"
-                placeholder="Minimum ₹15"
+                min={minimumOrderAmount}
+                placeholder={`Minimum ₹${minimumOrderAmount}`}
                 value={amount}
                 onChange={e => setAmount(e.target.value)}
               />
               <p className="text-xs text-gray-500">
-                85% goes to the worker who completes your order, 15% is the platform fee.
+                {100 - platformCommissionRate}% goes to the worker who completes your order, {platformCommissionRate}% is the platform fee.
               </p>
             </div>
 

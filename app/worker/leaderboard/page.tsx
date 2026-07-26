@@ -59,8 +59,12 @@ export default function WorkerLeaderboardPage() {
         <div className="glass-card p-5 border border-purple-500/20 bg-purple-500/5">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-purple-600/30 border border-purple-500/30 flex items-center justify-center shrink-0">
-                <span className="font-bold text-purple-300">{user?.name?.charAt(0).toUpperCase()}</span>
+              <div className="w-12 h-12 rounded-full bg-purple-600/30 border border-purple-500/30 flex items-center justify-center shrink-0 overflow-hidden">
+                {user?.profileImage ? (
+                  <img src={user.profileImage} alt={user.name} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="font-bold text-purple-300">{user?.name?.charAt(0).toUpperCase()}</span>
+                )}
               </div>
               <div>
                 <p className="font-semibold text-white">Your Rank</p>
@@ -119,10 +123,14 @@ export default function WorkerLeaderboardPage() {
                     <span className="text-gray-500 font-mono text-sm">#{i + 1}</span>
                   )}
                 </div>
-                <div className="w-9 h-9 rounded-full bg-[#374151] flex items-center justify-center shrink-0">
-                  <span className="text-xs font-semibold text-gray-300">
-                    {w.workerId?.name?.charAt(0).toUpperCase() ?? '?'}
-                  </span>
+                <div className="w-9 h-9 rounded-full bg-[#374151] flex items-center justify-center shrink-0 overflow-hidden">
+                  {w.workerId?.profileImage ? (
+                    <img src={w.workerId.profileImage} alt={w.workerId?.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-xs font-semibold text-gray-300">
+                      {w.workerId?.name?.charAt(0).toUpperCase() ?? '?'}
+                    </span>
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-white truncate">{w.workerId?.name ?? 'Unknown'}</p>

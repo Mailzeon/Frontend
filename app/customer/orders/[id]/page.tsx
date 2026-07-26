@@ -17,6 +17,7 @@ import { api }              from '@/lib/api';
 import { shortId, formatDate, formatCurrency } from '@/lib/utils';
 import { Order, DisputeReason } from '@/types';
 import { getSocket, SOCKET_EVENTS } from '@/lib/socket';
+import { useSettingsStore } from '@/store/settingsStore';
 import Link from 'next/link';
 
 const DISPUTE_REASONS: { value: DisputeReason; label: string }[] = [
@@ -36,6 +37,7 @@ const copyToClipboard = async (text: string, label: string) => {
 };
 
 export default function CustomerOrderDetail() {
+  const { orderTimerMinutes, fetchSettings } = useSettingsStore();
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -100,6 +102,7 @@ export default function CustomerOrderDetail() {
 
   useEffect(() => {
     fetchOrder();
+    fetchSettings();
     const socket = getSocket();
     if (!socket) return;
 
@@ -380,7 +383,7 @@ export default function CustomerOrderDetail() {
           </div>
           <p className="font-semibold text-white">Worker accepted your order</p>
           <p className="text-sm text-gray-400">
-            Credentials will be submitted within 10 minutes.
+            Credentials will be submitted within {orderTimerMinutes} minutes.
           </p>
         </div>
       )}

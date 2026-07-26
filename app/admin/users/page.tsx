@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Users, CheckCircle, XCircle, Search } from 'lucide-react';
+import Link from 'next/link';
+import { Users, CheckCircle, XCircle, Search, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -80,10 +81,11 @@ export default function AdminUsersPage() {
             <p className="text-sm">No users found.</p>
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[720px]">
             <thead>
               <tr className="border-b border-[#374151]">
-                {['Name','Email', tab === 'worker' ? 'Level' : 'Joined', 'Status', tab === 'worker' ? 'Actions' : ''].map(h => (
+                {['Name','Email', tab === 'worker' ? 'Level' : 'Joined', 'Status', 'Actions'].map(h => (
                   <th key={h} className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-4 py-3">{h}</th>
                 ))}
               </tr>
@@ -132,14 +134,24 @@ export default function AdminUsersPage() {
                             <XCircle className="w-3.5 h-3.5 mr-1" /> Suspend
                           </Button>
                         )}
+                        <Link href={`/admin/users/${u._id}`}>
+                          <Button size="sm" variant="outline"><Eye className="w-3.5 h-3.5" /></Button>
+                        </Link>
                       </div>
                     </td>
                   )}
-                  {tab === 'customer' && <td className="px-4 py-3" />}
+                  {tab === 'customer' && (
+                    <td className="px-4 py-3">
+                      <Link href={`/admin/users/${u._id}`}>
+                        <Button size="sm" variant="outline"><Eye className="w-3.5 h-3.5 mr-1" /> View</Button>
+                      </Link>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>

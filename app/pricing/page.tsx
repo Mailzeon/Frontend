@@ -3,7 +3,36 @@ import Link from 'next/link';
 
 export const metadata = { title: 'Pricing & Services' };
 
-export default function PricingPage() {
+// Always fetch fresh on every request — this page shows live admin-configured
+// settings (minimum order amount, commission %), so it must never be
+// statically cached at build time or it'd go stale the moment admin changes
+// a setting, exactly like the bug this page previously had (hardcoded 15/15%).
+export const revalidate = 0;
+
+interface PublicSettings {
+  minimumOrderAmount: number;
+  platformCommissionRate: number;
+}
+
+const DEFAULTS: PublicSettings = { minimumOrderAmount: 15, platformCommissionRate: 15 };
+
+async function getSettings(): Promise<PublicSettings> {
+  try {
+    const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+    const res = await fetch(`${base}/settings/public`, { cache: 'no-store' });
+    const json = await res.json();
+    if (json.success) return json.data;
+  } catch {
+    // Fall through to defaults — this is a public marketing page, so it
+    // should never hard-fail just because the settings fetch failed.
+  }
+  return DEFAULTS;
+}
+
+export default async function PricingPage() {
+  const { minimumOrderAmount, platformCommissionRate } = await getSettings();
+  const workerShare = 100 - platformCommissionRate;
+
   return (
     <div className="min-h-screen bg-[#0B1120] p-4 md:p-8">
       <div className="max-w-3xl mx-auto space-y-8">
@@ -57,26 +86,26 @@ export default function PricingPage() {
             <div className="p-4 rounded-xl bg-[#374151]/40 border border-[#374151]">
               <p className="text-xs text-gray-500 uppercase tracking-wider">Order Amount</p>
               <p className="text-2xl font-bold text-white mt-1">Customer's Choice</p>
-              <p className="text-xs text-gray-500 mt-1">Minimum ₹15 per order</p>
+              <p className="text-xs text-gray-500 mt-1">Minimum ₹{minimumOrderAmount} per order</p>
             </div>
             <div className="p-4 rounded-xl bg-[#374151]/40 border border-[#374151]">
               <p className="text-xs text-gray-500 uppercase tracking-wider">Platform Commission</p>
-              <p className="text-2xl font-bold text-white mt-1">15%</p>
+              <p className="text-2xl font-bold text-white mt-1">{platformCommissionRate}%</p>
               <p className="text-xs text-gray-500 mt-1">Deducted automatically from order amount</p>
             </div>
           </div>
 
           <p className="text-sm text-gray-400 leading-relaxed pt-2">
-            The Customer sets their own order amount at the time of placing an order (minimum ₹15, no upper
+            The Customer sets their own order amount at the time of placing an order (minimum ₹{minimumOrderAmount}, no upper
             limit). The full amount is collected upfront via our secure payment partner. Mailzeon retains a
-            fixed 15% platform commission, and the remaining 85% is paid out to the Worker once the order is
+            fixed {platformCommissionRate}% platform commission, and the remaining {workerShare}% is paid out to the Worker once the order is
             completed.
           </p>
 
           <div className="p-4 rounded-xl bg-purple-500/5 border border-purple-500/20">
             <p className="text-sm text-gray-300">
-              <strong className="text-white">Example:</strong> On a ₹100 order, Mailzeon's commission is ₹15,
-              and the Worker who completes the order earns ₹85.
+              <strong className="text-white">Example:</strong> On a ₹100 order, Mailzeon's commission is ₹{platformCommissionRate},
+              and the Worker who completes the order earns ₹{workerShare}.
             </p>
           </div>
         </div>

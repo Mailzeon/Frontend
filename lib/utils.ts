@@ -7,12 +7,21 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-/** Format a number as Indian Rupees. */
+/**
+ * Format a number as Indian Rupees.
+ * Shows decimals ONLY when the amount actually has paise (minimumFractionDigits: 0
+ * keeps whole-rupee amounts clean as "₹100", not "₹100.00") — but never HIDES
+ * real decimals the way `maximumFractionDigits: 0` previously did, which made
+ * a genuine ₹0.85 workerEarning display as "₹1" everywhere in the app (wallet,
+ * marketplace, dashboard, order detail) even though the actual stored/credited
+ * amount was correctly 0.85, not 1.
+ */
 export function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
   }).format(amount);
 }
 

@@ -19,44 +19,46 @@ export interface AuthUser {
 
 interface AuthState {
   user:            AuthUser | null;
-  token:           string | null;
   isAuthenticated: boolean;
   _hasHydrated:    boolean;
 
-  setAuth:     (user: AuthUser, token: string) => void;
+  setAuth:     (user: AuthUser) => void;
   clearAuth:   () => void;
   updateUser:  (updates: Partial<AuthUser>) => void;
   setHydrated: () => void;
 }
 
+// NOTE (httpOnly cookie migration): there is no `token` field here anymore.
+// The real session token now lives ONLY in an httpOnly cookie set by the
+// backend on login/register (see utils/cookies.ts on the backend) — it is
+// never readable by JavaScript, so it can't be stored here even if we
+// wanted to. `mp_role` below is a separate, non-sensitive cookie used only
+// by middleware.ts to decide route access (Next.js Edge middleware can't
+// read localStorage, so it needs *some* cookie to check) — it carries no
+// secret, just which dashboard to route to.
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
       user:            null,
-      token:           null,
       isAuthenticated: false,
       _hasHydrated:    false,
 
       setHydrated: () => set({ _hasHydrated: true }),
 
-      setAuth: (user, token) => {
+      setAuth: (user) => {
         if (typeof window !== 'undefined') {
-          localStorage.setItem('mp_token', token);
           const maxAge = 7 * 24 * 60 * 60;
-          document.cookie = `mp_token=${token}; path=/; max-age=${maxAge}; SameSite=Lax`;
           document.cookie = `mp_role=${user.role}; path=/; max-age=${maxAge}; SameSite=Lax`;
         }
-        set({ user, token, isAuthenticated: true });
+        set({ user, isAuthenticated: true });
       },
 
       clearAuth: () => {
         if (typeof window !== 'undefined') {
-          localStorage.removeItem('mp_token');
-          document.cookie = 'mp_token=; path=/; max-age=0';
           document.cookie = 'mp_role=; path=/; max-age=0';
         }
         disconnectSocket();
-        set({ user: null, token: null, isAuthenticated: false });
+        set({ user: null, isAuthenticated: false });
       },
 
       updateUser: (updates) =>
@@ -77,7 +79,6 @@ export const useAuthStore = create<AuthState>()(
       ),
       partialize: (state) => ({
         user:            state.user,
-        token:           state.token,
         isAuthenticated: state.isAuthenticated,
       }),
       onRehydrateStorage: () => (state) => {

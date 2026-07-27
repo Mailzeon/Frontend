@@ -35,8 +35,8 @@ export default function RegisterPage() {
     try {
       const { data } = await api.post('/auth/register', { name: name.trim(), email: email.trim(), password, role });
       if (!data.success) { toast.error(data.message); return; }
-      const { user, token } = data.data;
-      setAuth(user, token);
+      const { user } = data.data;
+      setAuth(user);
       initSocket(user._id, user.role);
       toast.success(data.message);
       router.push(`/${user.role}/dashboard`);

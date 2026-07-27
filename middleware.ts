@@ -13,14 +13,20 @@ const PUBLIC_PATHS = [
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Read auth info from cookies (set on login — see authStore.ts)
-  const token = req.cookies.get('mp_token')?.value;
-  const role  = req.cookies.get('mp_role')?.value;
+  // Read auth info from cookies (set on login — see authStore.ts).
+  // NOTE: this is NOT the real session token — that's an httpOnly cookie
+  // scoped to the backend's own domain (Render), which this frontend-domain
+  // (Vercel) middleware could never read anyway, even if it wanted to,
+  // since frontend and backend are on entirely separate domains. `mp_role`
+  // is a small, non-sensitive cookie set purely so Edge middleware has
+  // *something* to check for route-gating — actual authorization for every
+  // real API call is enforced server-side against the httpOnly cookie.
+  const role = req.cookies.get('mp_role')?.value;
 
   const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
 
   // ── Not logged in ──────────────────────────────────────────────────────────
-  if (!token) {
+  if (!role) {
     if (isPublic) return NextResponse.next(); // Allow login/register/compliance pages
     // Redirect everything else to login
     const url = req.nextUrl.clone();
@@ -35,7 +41,7 @@ export function middleware(req: NextRequest) {
   // /register redirect away when already authenticated; the compliance pages
   // stay viewable for logged-in users too.
   const isAuthOnlyPage = pathname.startsWith('/login') || pathname.startsWith('/register');
-  if (isAuthOnlyPage && token && role) {
+  if (isAuthOnlyPage) {
     const url = req.nextUrl.clone();
     url.pathname = `/${role}/dashboard`;
     return NextResponse.redirect(url);

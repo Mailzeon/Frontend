@@ -7,6 +7,7 @@ import {
   Undo2, X, User, Trophy
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { useUIStore } from '@/store/uiStore';
 import { toast } from '@/components/ui/toast';
@@ -49,7 +50,17 @@ export function Sidebar() {
 
   const nav = user?.role === 'admin' ? adminNav : user?.role === 'worker' ? workerNav : customerNav;
 
-  const logout = () => { clearAuth(); toast.info('Signed out.'); router.push('/login'); };
+  const logout = async () => {
+    // Clear the httpOnly session cookie server-side first — clearAuth() alone
+    // only resets client-side state (Zustand + the non-sensitive mp_role
+    // cookie); it can't touch the httpOnly cookie since JS never has access
+    // to it. If this call fails (e.g. network hiccup), still proceed with
+    // clearing local state so the user isn't stuck unable to sign out.
+    await api.post('/auth/logout').catch(() => {});
+    clearAuth();
+    toast.info('Signed out.');
+    router.push('/login');
+  };
 
   return (
     <>

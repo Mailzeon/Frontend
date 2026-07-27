@@ -8,7 +8,9 @@ import { useAuthStore, AuthUser } from '@/store/authStore';
 
 interface LoginPayload    { email: string; password: string; }
 interface RegisterPayload { name: string; email: string; password: string; role: 'customer' | 'worker'; }
-interface AuthData        { user: AuthUser; token: string; }
+// NOTE: no `token` field anymore — the real session lives only in an
+// httpOnly cookie set by the backend, never in the JSON response body.
+interface AuthData        { user: AuthUser; }
 
 export function useAuth() {
   const router      = useRouter();
@@ -18,8 +20,8 @@ export function useAuth() {
     const { data } = await api.post<ApiResponse<AuthData>>('/auth/login', payload);
     if (!data.success || !data.data) throw new Error(data.message);
 
-    const { user, token } = data.data;
-    setAuth(user, token);
+    const { user } = data.data;
+    setAuth(user);
 
     // Start Socket.IO after login
     initSocket(user._id, user.role);
@@ -32,14 +34,17 @@ export function useAuth() {
     const { data } = await api.post<ApiResponse<AuthData>>('/auth/register', payload);
     if (!data.success || !data.data) throw new Error(data.message);
 
-    const { user, token } = data.data;
-    setAuth(user, token);
+    const { user } = data.data;
+    setAuth(user);
 
     initSocket(user._id, user.role);
     router.push(`/${user.role}/dashboard`);
   };
 
-  const logout = (): void => {
+  const logout = async (): Promise<void> => {
+    // Clears the httpOnly cookie server-side — clearAuth() alone can't touch
+    // it since JS never has access to that cookie.
+    await api.post('/auth/logout').catch(() => {});
     clearAuth();
     router.push('/login');
   };

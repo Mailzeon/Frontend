@@ -10,30 +10,24 @@ export const api = axios.create({
   timeout: 15000,
 });
 
-// ─── Request interceptor — attach JWT ─────────────────────────────────────────
-api.interceptors.request.use(
-  (config) => {
-    // Read token from localStorage (set on login by authStore)
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('mp_token');
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+// NOTE: no request interceptor needed anymore to attach a token — the real
+// session token now lives in an httpOnly cookie (set by the backend on
+// login/register), which the browser attaches automatically to every
+// request because of `withCredentials: true` above. There is no JS-readable
+// token to read from localStorage anymore (that was the XSS exposure this
+// migration removes).
 
 // ─── Response interceptor — handle auth errors ────────────────────────────────
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401 && typeof window !== 'undefined') {
-      // Clear all auth state and redirect to login
-      localStorage.removeItem('mp_token');
+      // Clear client-side auth state and redirect to login. The httpOnly
+      // cookie itself is cleared server-side by /auth/logout (called from
+      // the Sidebar sign-out handler) — if it's simply expired/invalid,
+      // it'll keep failing auth checks harmlessly until it's overwritten by
+      // a fresh login.
       localStorage.removeItem('mp_auth-storage'); // Zustand persist key
-      document.cookie = 'mp_token=; path=/; max-age=0';
       document.cookie = 'mp_role=; path=/; max-age=0';
       window.location.href = '/login';
     }

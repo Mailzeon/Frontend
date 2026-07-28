@@ -147,7 +147,7 @@ export function ProfilePage({ showPaymentDetails = false }: ProfilePageProps) {
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={uploadingImage}
-            className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-purple-600 hover:bg-purple-500 border-2 border-[#0B1120] flex items-center justify-center transition-colors disabled:opacity-60"
+            className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-purple-600 hover:bg-purple-500 border-2 border-[#08080D] flex items-center justify-center transition-colors disabled:opacity-60"
             title="Change profile picture"
           >
             {uploadingImage ? (

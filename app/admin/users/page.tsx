@@ -57,7 +57,7 @@ export default function AdminUsersPage() {
 
       {/* Tabs + Search */}
       <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex bg-[#1F2937] border border-[#374151] rounded-xl p-1 gap-1">
+        <div className="flex bg-[#131318] border border-white/[0.06] rounded-xl p-1 gap-1">
           {(['worker','customer'] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
               className={cn('px-4 py-1.5 rounded-lg text-sm font-medium capitalize transition-all',
@@ -84,15 +84,15 @@ export default function AdminUsersPage() {
           <div className="overflow-x-auto">
           <table className="w-full text-sm min-w-[720px]">
             <thead>
-              <tr className="border-b border-[#374151]">
+              <tr className="border-b border-white/[0.06]">
                 {['Name','Email', tab === 'worker' ? 'Level' : 'Joined', 'Status', 'Actions'].map(h => (
                   <th key={h} className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-4 py-3">{h}</th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#374151]/50">
+            <tbody className="divide-y divide-white/[0.05]">
               {filtered.map(u => (
-                <tr key={u._id} className="hover:bg-[#374151]/20 transition-colors">
+                <tr key={u._id} className="hover:bg-white/[0.05] transition-colors">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-purple-600/20 border border-purple-500/20 flex items-center justify-center text-xs font-semibold text-purple-300 shrink-0">

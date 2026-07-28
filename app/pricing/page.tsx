@@ -34,7 +34,7 @@ export default async function PricingPage() {
   const workerShare = 100 - platformCommissionRate;
 
   return (
-    <div className="min-h-screen bg-[#0B1120] p-4 md:p-8">
+    <div className="min-h-screen bg-[#08080D] p-4 md:p-8">
       <div className="max-w-3xl mx-auto space-y-8">
         <Link href="/login" className="flex items-center gap-2 w-fit">
           <div className="w-9 h-9 rounded-xl bg-purple-600 flex items-center justify-center">
@@ -83,12 +83,12 @@ export default async function PricingPage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="p-4 rounded-xl bg-[#374151]/40 border border-[#374151]">
+            <div className="p-4 rounded-xl bg-white/[0.05] border border-white/[0.06]">
               <p className="text-xs text-gray-500 uppercase tracking-wider">Order Amount</p>
               <p className="text-2xl font-bold text-white mt-1">Customer's Choice</p>
               <p className="text-xs text-gray-500 mt-1">Minimum ₹{minimumOrderAmount} per order</p>
             </div>
-            <div className="p-4 rounded-xl bg-[#374151]/40 border border-[#374151]">
+            <div className="p-4 rounded-xl bg-white/[0.05] border border-white/[0.06]">
               <p className="text-xs text-gray-500 uppercase tracking-wider">Platform Commission</p>
               <p className="text-2xl font-bold text-white mt-1">{platformCommissionRate}%</p>
               <p className="text-xs text-gray-500 mt-1">Deducted automatically from order amount</p>

@@ -3,29 +3,31 @@
 @tailwind utilities;
 
 /* ─── Google Fonts ─────────────────────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 /* ─── Shadcn CSS variables (must match tailwind.config.ts) ─────────────────── */
 @layer base {
   :root {
-    --background: 11 17 32;          /* #0B1120 */
+    /* REFRESH: richer near-black (was #0B1120 navy) + more saturated violet,
+       matching the premium-SaaS reference direction the client chose. */
+    --background: 8 8 13;            /* #08080D */
     --foreground: 249 250 251;       /* #F9FAFB */
-    --card: 31 41 55;                /* #1F2937 */
+    --card: 19 19 24;                /* #131318 */
     --card-foreground: 249 250 251;
-    --popover: 31 41 55;
+    --popover: 19 19 24;
     --popover-foreground: 249 250 251;
     --primary: 139 92 246;           /* #8B5CF6 purple */
     --primary-foreground: 255 255 255;
     --secondary: 59 130 246;         /* #3B82F6 blue */
     --secondary-foreground: 255 255 255;
-    --muted: 55 65 81;               /* #374151 */
+    --muted: 38 38 47;               /* #26262F */
     --muted-foreground: 156 163 175; /* #9CA3AF */
-    --accent: 55 65 81;
+    --accent: 38 38 47;
     --accent-foreground: 249 250 251;
     --destructive: 239 68 68;        /* #EF4444 */
     --destructive-foreground: 255 255 255;
-    --border: 55 65 81;
-    --input: 55 65 81;
+    --border: 38 38 47;
+    --input: 38 38 47;
     --ring: 139 92 246;
     --radius: 0.75rem;
   }
@@ -44,33 +46,61 @@
   }
 
   body {
-    @apply bg-[#0B1120] text-gray-100 font-sans;
+    @apply bg-[#08080D] text-gray-100 font-sans;
     min-height: 100vh;
   }
 
+  /* Tighter tracking on headings — small detail that reads as "designed"
+     rather than default browser spacing. */
+  h1, h2, h3 { @apply tracking-tight; }
+
   /* ── Custom scrollbar ─────────────────────────────────────────────────── */
   ::-webkit-scrollbar        { width: 5px; height: 5px; }
-  ::-webkit-scrollbar-track  { background: #0B1120; }
-  ::-webkit-scrollbar-thumb  { background: #374151; border-radius: 4px; }
-  ::-webkit-scrollbar-thumb:hover { background: #4B5563; }
+  ::-webkit-scrollbar-track  { background: #08080D; }
+  ::-webkit-scrollbar-thumb  { background: #26262F; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #35353F; }
+
+  /* Visible keyboard focus everywhere — accessibility floor, not optional */
+  :focus-visible {
+    outline: 2px solid rgba(139, 92, 246, 0.6);
+    outline-offset: 2px;
+  }
 }
 
 /* ─── Reusable component classes ───────────────────────────────────────────── */
 @layer components {
 
-  /* Glass card — main card style used across all dashboards */
+  /* Glass card — main card style used across all dashboards.
+     REFRESH: adds backdrop-blur + a soft inner top-highlight (shadow-glass-inset)
+     so it reads as translucent "glass" instead of a flat gray box — the
+     single biggest visual lever since this class is used everywhere. */
   .glass-card {
-    @apply bg-[#1F2937] border border-[#374151] rounded-2xl shadow-card;
+    @apply bg-[#131318]/90 backdrop-blur-xl border border-white/[0.06] rounded-2xl shadow-card shadow-glass-inset;
   }
 
   /* Elevated glass — for modals and dropdowns */
   .glass-elevated {
-    @apply bg-[#1F2937]/95 backdrop-blur-md border border-[#374151]/60 rounded-2xl shadow-card-lg;
+    @apply bg-[#131318]/95 backdrop-blur-xl border border-white/[0.08] rounded-2xl shadow-card-lg shadow-glass-inset;
   }
 
   /* Purple → Blue gradient text for headings */
   .gradient-text {
     @apply bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent;
+  }
+
+  /* NEW: violet gradient text, for the brand-accent headline treatment
+     (login/register hero, marketing pages) — distinct from gradient-text
+     above, which is purple→blue and used for in-app section headers. */
+  .gradient-text-brand {
+    @apply bg-brand-gradient bg-clip-text text-transparent;
+  }
+
+  /* NEW: ambient background glow — a soft, blurred violet blob. Purely
+     decorative and positioned absolutely by the parent; used sparingly
+     (auth pages, page heroes) per the "spend your boldness in one place"
+     principle — never inside dense data tables/dashboards. */
+  .ambient-glow {
+    @apply absolute rounded-full bg-glow-radial blur-3xl pointer-events-none animate-drift;
   }
 
   /* ── Order status badge classes ─────────────────────────────────────── */
@@ -86,17 +116,26 @@
   /* ── Sidebar nav item ───────────────────────────────────────────────── */
   .nav-item {
     @apply flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-400
-           hover:text-white hover:bg-[#374151]/60 transition-all duration-150
+           hover:text-white hover:bg-white/[0.04] transition-all duration-150
            cursor-pointer text-sm font-medium;
   }
+  /* REFRESH: active state now uses the brand gradient (subtle, low-opacity)
+     instead of a flat purple tint — same idea, more premium execution. */
   .nav-item-active {
     @apply flex items-center gap-3 px-3 py-2.5 rounded-xl
-           text-white bg-purple-600/20 border border-purple-500/30
+           text-white bg-gradient-to-r from-purple-600/25 to-purple-500/10
+           border border-purple-500/30 shadow-glow-purple
            text-sm font-medium;
   }
 
   /* ── Stats card ─────────────────────────────────────────────────────── */
   .stat-card {
     @apply glass-card p-5 flex flex-col gap-1 animate-fade-in;
+  }
+
+  /* NEW: the big number inside a stat card — monospace/tabular figures,
+     the "precise data" signature touch of this design direction. */
+  .stat-figure {
+    @apply font-mono tabular-nums tracking-tight;
   }
 }

@@ -76,7 +76,7 @@ export default function AdminDisputesPage() {
             <p className="text-sm">No disputes. Great!</p>
           </div>
         ) : (
-          <div className="divide-y divide-[#374151]/50">
+          <div className="divide-y divide-white/[0.05]">
             {disputes.map(d => (
               <div key={d._id} className="p-4 flex items-start justify-between gap-4 flex-wrap">
                 <div className="space-y-1">
@@ -111,7 +111,7 @@ export default function AdminDisputesPage() {
           <DialogHeader><DialogTitle>Review Dispute</DialogTitle></DialogHeader>
           {selected && (
             <div className="space-y-4">
-              <div className="p-3 rounded-xl bg-[#374151]/40 text-sm space-y-1">
+              <div className="p-3 rounded-xl bg-white/[0.05] text-sm space-y-1">
                 <p className="text-white font-medium">{REASON_LABELS[selected.reason]}</p>
                 <p className="text-gray-400">Order: {shortId(selected.orderId?._id ?? selected.orderId)}</p>
                 {selected.description && <p className="text-gray-400 italic">"{selected.description}"</p>}

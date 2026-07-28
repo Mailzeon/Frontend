@@ -109,15 +109,15 @@ export default function CustomerOrdersPage() {
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-[#374151]">
+              <tr className="border-b border-white/[0.06]">
                 {['Order ID','Service','Amount','Status','Date',''].map(h => (
                   <th key={h} className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-4 py-3">{h}</th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#374151]/50">
+            <tbody className="divide-y divide-white/[0.05]">
               {orders.map(o => (
-                <tr key={o._id} className="hover:bg-[#374151]/20 transition-colors">
+                <tr key={o._id} className="hover:bg-white/[0.05] transition-colors">
                   <td className="px-4 py-3 font-mono text-gray-400 text-xs">{shortId(o._id)}</td>
                   <td className="px-4 py-3 text-white font-medium max-w-[180px] truncate">{o.serviceName}</td>
                   <td className="px-4 py-3 text-gray-300">{o.amount !== undefined ? formatCurrency(o.amount) : '—'}</td>
@@ -172,7 +172,7 @@ export default function CustomerOrdersPage() {
                       'relative flex items-center justify-center gap-1 px-2 py-2 rounded-lg border text-xs font-medium transition-all truncate',
                       domain === d
                         ? 'border-purple-500 bg-purple-600/10 text-white'
-                        : 'border-[#374151] text-gray-400 hover:border-[#4B5563] hover:text-gray-200'
+                        : 'border-white/[0.06] text-gray-400 hover:border-white/[0.15] hover:text-gray-200'
                     )}
                   >
                     {domain === d && <Check className="w-3 h-3 text-purple-400 shrink-0" />}
@@ -188,7 +188,7 @@ export default function CustomerOrdersPage() {
                 <button type="button" onClick={() => setEmailType('random')}
                   className={cn(
                     'flex-1 flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all',
-                    emailType === 'random' ? 'border-purple-500 bg-purple-600/10 text-white' : 'border-[#374151] text-gray-400 hover:border-[#4B5563]'
+                    emailType === 'random' ? 'border-purple-500 bg-purple-600/10 text-white' : 'border-white/[0.06] text-gray-400 hover:border-white/[0.15]'
                   )}>
                   <Shuffle className={cn('w-5 h-5', emailType === 'random' ? 'text-purple-400' : 'text-gray-500')} />
                   <span className="font-medium text-sm">Random</span>
@@ -197,7 +197,7 @@ export default function CustomerOrdersPage() {
                 <button type="button" onClick={() => setEmailType('custom')}
                   className={cn(
                     'flex-1 flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all',
-                    emailType === 'custom' ? 'border-purple-500 bg-purple-600/10 text-white' : 'border-[#374151] text-gray-400 hover:border-[#4B5563]'
+                    emailType === 'custom' ? 'border-purple-500 bg-purple-600/10 text-white' : 'border-white/[0.06] text-gray-400 hover:border-white/[0.15]'
                   )}>
                   <Edit3 className={cn('w-5 h-5', emailType === 'custom' ? 'text-purple-400' : 'text-gray-500')} />
                   <span className="font-medium text-sm">Custom</span>
@@ -217,7 +217,7 @@ export default function CustomerOrdersPage() {
             )}
 
             {previewEmail && (
-              <div className="p-3 rounded-xl bg-[#374151]/40 text-sm">
+              <div className="p-3 rounded-xl bg-white/[0.05] text-sm">
                 <span className="text-gray-500">Email to be created: </span>
                 <span className="text-white font-mono break-all">{previewEmail}</span>
               </div>

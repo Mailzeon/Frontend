@@ -52,7 +52,7 @@ export function Toaster() {
   return (
     <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 max-w-sm w-full">
       {toasts.map(t => (
-        <div key={t.id} className={cn('flex items-start gap-3 p-4 rounded-xl bg-[#1F2937] border shadow-card-lg animate-slide-in', colors[t.type])}>
+        <div key={t.id} className={cn('flex items-start gap-3 p-4 rounded-xl bg-[#131318] border shadow-card-lg animate-slide-in', colors[t.type])}>
           {icons[t.type]}
           <p className="text-sm text-gray-200 flex-1">{t.message}</p>
           <button onClick={() => setToasts(p => p.filter(x => x.id !== t.id))} className="text-gray-500 hover:text-white">

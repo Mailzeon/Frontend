@@ -41,20 +41,20 @@ export function Navbar({ title }: NavbarProps) {
 
   return (
     <>
-      <header className="h-16 bg-[#111827]/80 backdrop-blur-sm border-b border-[#374151] flex items-center px-4 md:px-6 gap-3 md:gap-4 sticky top-0 z-20">
+      <header className="h-16 bg-[#0C0C12]/80 backdrop-blur-xl border-b border-white/[0.06] flex items-center px-4 md:px-6 gap-3 md:gap-4 sticky top-0 z-20">
         <button
           onClick={toggleMobileSidebar}
-          className="md:hidden p-2 -ml-2 rounded-xl text-gray-400 hover:text-white hover:bg-[#374151] transition-colors"
+          className="md:hidden p-2 -ml-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/[0.06] transition-colors"
         >
           <Menu className="w-5 h-5" />
         </button>
 
-        <h1 className="font-semibold text-white text-base md:text-lg flex-1 truncate">{title}</h1>
+        <h1 className="font-semibold text-white text-base md:text-lg flex-1 truncate tracking-tight">{title}</h1>
 
-        <button onClick={() => setOpen(true)} className="relative p-2 rounded-xl text-gray-400 hover:text-white hover:bg-[#374151] transition-colors">
+        <button onClick={() => setOpen(true)} className="relative p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/[0.06] transition-colors">
           <Bell className="w-5 h-5" />
           {unreadCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 w-5 h-5 rounded-full bg-purple-500 text-white text-[10px] font-bold flex items-center justify-center">
+            <span className="absolute -top-0.5 -right-0.5 w-5 h-5 rounded-full bg-brand-gradient text-white text-[10px] font-bold flex items-center justify-center shadow-glow-purple">
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}
@@ -64,17 +64,17 @@ export function Navbar({ title }: NavbarProps) {
       {open && (
         <div className="fixed inset-0 z-40 flex justify-end">
           <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
-          <aside className="relative w-[85vw] max-w-80 h-full bg-[#111827] border-l border-[#374151] flex flex-col animate-slide-in">
-            <div className="flex items-center justify-between p-4 border-b border-[#374151]">
-              <h2 className="font-semibold text-white">Notifications</h2>
+          <aside className="relative w-[85vw] max-w-80 h-full bg-[#0C0C12]/95 backdrop-blur-xl border-l border-white/[0.06] flex flex-col animate-slide-in">
+            <div className="flex items-center justify-between p-4 border-b border-white/[0.06]">
+              <h2 className="font-semibold text-white tracking-tight">Notifications</h2>
               <div className="flex items-center gap-1">
                 {unreadCount > 0 && (
                   <button onClick={handleMarkAllAsRead}
-                    className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[#374151]">
+                    className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-white/[0.06]">
                     <CheckCheck className="w-3.5 h-3.5" /> All read
                   </button>
                 )}
-                <button onClick={() => setOpen(false)} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#374151]">
+                <button onClick={() => setOpen(false)} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/[0.06]">
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -90,7 +90,7 @@ export function Navbar({ title }: NavbarProps) {
                 notifications.map(n => (
                   <button key={n._id} onClick={() => handleNotificationClick(n)}
                     className={cn(
-                      'w-full text-left p-4 border-b border-[#374151]/50 hover:bg-[#374151]/30 transition-colors',
+                      'w-full text-left p-4 border-b border-white/[0.05] hover:bg-white/[0.04] transition-colors',
                       !n.isRead && 'bg-purple-500/5'
                     )}>
                     <div className="flex items-start gap-3">

@@ -33,7 +33,7 @@ export default async function TermsPage() {
   const workerShare = 100 - platformCommissionRate;
 
   return (
-    <div className="min-h-screen bg-[#0B1120] p-4 md:p-8">
+    <div className="min-h-screen bg-[#08080D] p-4 md:p-8">
       <div className="max-w-3xl mx-auto space-y-8">
         <Link href="/login" className="flex items-center gap-2 w-fit">
           <div className="w-9 h-9 rounded-xl bg-purple-600 flex items-center justify-center">

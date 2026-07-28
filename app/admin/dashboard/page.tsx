@@ -13,8 +13,8 @@ import {
 
 const TOOLTIP_STYLE = {
   contentStyle: {
-    background: '#1F2937',
-    border: '1px solid #374151',
+    background: '#131318',
+    border: '1px solid rgba(255,255,255,0.08)',
     borderRadius: '12px',
     color: '#F9FAFB',
     fontSize: '12px',
@@ -65,7 +65,7 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Admin Dashboard</h1>
+        <h1 className="text-2xl font-bold text-white tracking-tight">Admin Dashboard</h1>
         <p className="text-gray-400 text-sm mt-0.5">Real-time platform overview</p>
       </div>
 
@@ -124,7 +124,7 @@ export default function AdminDashboard() {
                     <stop offset="95%" stopColor="#22C55E" stopOpacity={0}   />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
                 <XAxis dataKey="day"     tick={{ fill: '#9CA3AF', fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: '#9CA3AF', fontSize: 11 }} axisLine={false} tickLine={false}
                   tickFormatter={v => `₹${v}`} />
@@ -150,7 +150,7 @@ export default function AdminDashboard() {
           ) : (
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={analytics}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
                 <XAxis dataKey="day" tick={{ fill: '#9CA3AF', fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: '#9CA3AF', fontSize: 11 }} axisLine={false} tickLine={false}
                   allowDecimals={false} />

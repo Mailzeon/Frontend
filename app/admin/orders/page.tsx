@@ -76,15 +76,15 @@ export default function AdminOrdersPage() {
           <div className="overflow-x-auto">
           <table className="w-full text-sm min-w-[760px]">
             <thead>
-              <tr className="border-b border-[#374151]">
+              <tr className="border-b border-white/[0.06]">
                 {['ID','Service','Customer','Worker','Amount','Status','Date'].map(h => (
                   <th key={h} className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-4 py-3">{h}</th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#374151]/50">
+            <tbody className="divide-y divide-white/[0.05]">
               {filtered.map(o => (
-                <tr key={o._id} className="hover:bg-[#374151]/20 transition-colors">
+                <tr key={o._id} className="hover:bg-white/[0.05] transition-colors">
                   <td className="px-4 py-3 font-mono text-gray-400 text-xs">{shortId(o._id)}</td>
                   <td className="px-4 py-3 text-white font-medium max-w-[150px] truncate">{o.serviceName}</td>
                   <td className="px-4 py-3 text-gray-400">{o.customerId?.name ?? '—'}</td>

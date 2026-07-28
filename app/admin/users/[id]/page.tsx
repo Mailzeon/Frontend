@@ -115,7 +115,7 @@ export default function AdminUserDetailPage() {
           </h2>
           <div className="flex flex-wrap gap-2">
             {recentRatings.map((r: any) => (
-              <div key={r._id} className="px-3 py-1.5 rounded-lg bg-[#374151]/40 text-xs flex items-center gap-1.5">
+              <div key={r._id} className="px-3 py-1.5 rounded-lg bg-white/[0.05] text-xs flex items-center gap-1.5">
                 <span className="text-yellow-400 font-semibold">{r.rating}★</span>
                 <span className="text-gray-400">{r.customerId?.name ?? 'Customer'}</span>
               </div>
@@ -126,7 +126,7 @@ export default function AdminUserDetailPage() {
 
       {/* Orders */}
       <div className="glass-card overflow-hidden">
-        <div className="p-4 border-b border-[#374151]">
+        <div className="p-4 border-b border-white/[0.06]">
           <h2 className="font-semibold text-white">
             {isWorker ? 'Orders Accepted' : 'Orders Placed'} ({orders.length})
           </h2>
@@ -137,15 +137,15 @@ export default function AdminUserDetailPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm min-w-[600px]">
               <thead>
-                <tr className="border-b border-[#374151]">
+                <tr className="border-b border-white/[0.06]">
                   {['ID', 'Service', isWorker ? 'Customer' : 'Worker', 'Amount', 'Status', 'Date'].map(h => (
                     <th key={h} className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-4 py-2.5">{h}</th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#374151]/50">
+              <tbody className="divide-y divide-white/[0.05]">
                 {orders.map((o: any) => (
-                  <tr key={o._id} className="hover:bg-[#374151]/20 transition-colors">
+                  <tr key={o._id} className="hover:bg-white/[0.05] transition-colors">
                     <td className="px-4 py-2.5 font-mono text-gray-400 text-xs">{shortId(o._id)}</td>
                     <td className="px-4 py-2.5 text-white max-w-[140px] truncate">{o.serviceName}</td>
                     <td className="px-4 py-2.5 text-gray-400">
@@ -164,7 +164,7 @@ export default function AdminUserDetailPage() {
 
       {/* Disputes */}
       <div className="glass-card overflow-hidden">
-        <div className="p-4 border-b border-[#374151]">
+        <div className="p-4 border-b border-white/[0.06]">
           <h2 className="font-semibold text-white flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-yellow-400" /> Disputes ({disputes.length})
           </h2>
@@ -172,7 +172,7 @@ export default function AdminUserDetailPage() {
         {disputes.length === 0 ? (
           <div className="text-center py-10 text-gray-500 text-sm">No disputes.</div>
         ) : (
-          <div className="divide-y divide-[#374151]/50">
+          <div className="divide-y divide-white/[0.05]">
             {disputes.map((d: any) => (
               <div key={d._id} className="p-4 flex items-start justify-between gap-4 flex-wrap">
                 <div>

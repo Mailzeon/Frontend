@@ -40,7 +40,7 @@ export default function CustomerWalletPage() {
       </div>
 
       <div className="glass-card overflow-hidden">
-        <div className="p-4 border-b border-[#374151]">
+        <div className="p-4 border-b border-white/[0.06]">
           <h2 className="font-semibold text-white">Payment History</h2>
         </div>
         {loading ? (
@@ -51,7 +51,7 @@ export default function CustomerWalletPage() {
             <p className="text-sm">No payments yet</p>
           </div>
         ) : (
-          <div className="divide-y divide-[#374151]/50">
+          <div className="divide-y divide-white/[0.05]">
             {txns.map(t => (
               <div key={t._id} className="flex items-center justify-between px-4 py-3">
                 <div>

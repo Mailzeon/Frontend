@@ -104,7 +104,7 @@ export default function CustomerDashboard() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Dashboard</h1>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Dashboard</h1>
           <p className="text-gray-400 text-sm mt-0.5">Track your orders and activity</p>
         </div>
         <Button onClick={() => setShowModal(true)}>
@@ -138,7 +138,7 @@ export default function CustomerDashboard() {
           <div className="space-y-2">
             {orders.slice(0,5).map(o => (
               <Link key={o._id} href={`/customer/orders/${o._id}`}
-                className="flex items-center justify-between p-3 rounded-xl hover:bg-[#374151]/30 transition-colors">
+                className="flex items-center justify-between p-3 rounded-xl hover:bg-white/[0.05] transition-colors">
                 <div>
                   <p className="text-sm font-medium text-white">{o.serviceName}</p>
                   <p className="text-xs text-gray-500">{shortId(o._id)} · {timeAgo(o.createdAt)}</p>
@@ -196,7 +196,7 @@ export default function CustomerDashboard() {
                       'relative flex items-center justify-center gap-1 px-2 py-2 rounded-lg border text-xs font-medium transition-all truncate',
                       domain === d
                         ? 'border-purple-500 bg-purple-600/10 text-white'
-                        : 'border-[#374151] text-gray-400 hover:border-[#4B5563] hover:text-gray-200'
+                        : 'border-white/[0.06] text-gray-400 hover:border-white/[0.15] hover:text-gray-200'
                     )}
                   >
                     {domain === d && <Check className="w-3 h-3 text-purple-400 shrink-0" />}
@@ -212,7 +212,7 @@ export default function CustomerDashboard() {
                 <button type="button" onClick={() => setEmailType('random')}
                   className={cn(
                     'flex-1 flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all',
-                    emailType === 'random' ? 'border-purple-500 bg-purple-600/10 text-white' : 'border-[#374151] text-gray-400 hover:border-[#4B5563]'
+                    emailType === 'random' ? 'border-purple-500 bg-purple-600/10 text-white' : 'border-white/[0.06] text-gray-400 hover:border-white/[0.15]'
                   )}>
                   <Shuffle className={cn('w-5 h-5', emailType === 'random' ? 'text-purple-400' : 'text-gray-500')} />
                   <span className="font-medium text-sm">Random</span>
@@ -221,7 +221,7 @@ export default function CustomerDashboard() {
                 <button type="button" onClick={() => setEmailType('custom')}
                   className={cn(
                     'flex-1 flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all',
-                    emailType === 'custom' ? 'border-purple-500 bg-purple-600/10 text-white' : 'border-[#374151] text-gray-400 hover:border-[#4B5563]'
+                    emailType === 'custom' ? 'border-purple-500 bg-purple-600/10 text-white' : 'border-white/[0.06] text-gray-400 hover:border-white/[0.15]'
                   )}>
                   <Edit3 className={cn('w-5 h-5', emailType === 'custom' ? 'text-purple-400' : 'text-gray-500')} />
                   <span className="font-medium text-sm">Custom</span>
@@ -241,7 +241,7 @@ export default function CustomerDashboard() {
             )}
 
             {previewEmail && (
-              <div className="p-3 rounded-xl bg-[#374151]/40 text-sm">
+              <div className="p-3 rounded-xl bg-white/[0.05] text-sm">
                 <span className="text-gray-500">Email to be created: </span>
                 <span className="text-white font-mono break-all">{previewEmail}</span>
               </div>

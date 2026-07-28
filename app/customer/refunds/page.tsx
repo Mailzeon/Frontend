@@ -50,7 +50,7 @@ export default function CustomerRefundsPage() {
             <p className="text-sm mt-1">Refunds appear here after a dispute is resolved in your favor.</p>
           </div>
         ) : (
-          <div className="divide-y divide-[#374151]/50">
+          <div className="divide-y divide-white/[0.05]">
             {refunds.map(r => (
               <div key={r._id} className="flex items-center justify-between p-4">
                 <div>

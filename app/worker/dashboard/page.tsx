@@ -81,7 +81,7 @@ export default function WorkerDashboard() {
       {/* Header + online toggle */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white">Worker Dashboard</h1>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Worker Dashboard</h1>
           <p className="text-gray-400 text-sm mt-0.5">Welcome back, {user?.name}</p>
         </div>
 
@@ -92,7 +92,7 @@ export default function WorkerDashboard() {
             'flex items-center gap-2.5 px-4 py-2.5 rounded-xl border font-medium text-sm transition-all duration-200',
             isOnline
               ? 'bg-green-500/10 border-green-500/30 text-green-400 hover:bg-green-500/20'
-              : 'bg-[#374151]/50 border-[#374151] text-gray-400 hover:text-white hover:bg-[#374151]',
+              : 'bg-[#1C1C24]/50 border-white/[0.06] text-gray-400 hover:text-white hover:bg-white/[0.05]',
             toggling && 'opacity-60 cursor-wait'
           )}
         >
@@ -151,7 +151,7 @@ export default function WorkerDashboard() {
           <div className="space-y-2">
             {orders.slice(0, 5).map(o => (
               <Link key={o._id} href={`/worker/orders/${o._id}`}
-                className="flex items-center justify-between p-3 rounded-xl hover:bg-[#374151]/30 transition-colors">
+                className="flex items-center justify-between p-3 rounded-xl hover:bg-white/[0.05] transition-colors">
                 <div>
                   <p className="text-sm font-medium text-white">{o.serviceName}</p>
                   <p className="text-xs text-gray-500">{shortId(o._id)} · {timeAgo(o.createdAt)}</p>

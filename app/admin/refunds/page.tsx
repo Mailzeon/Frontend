@@ -58,7 +58,7 @@ export default function AdminRefundsPage() {
             <p className="text-sm">No refund requests.</p>
           </div>
         ) : (
-          <div className="divide-y divide-[#374151]/50">
+          <div className="divide-y divide-white/[0.05]">
             {refunds.map(r => (
               <div key={r._id} className="p-4 space-y-3">
                 <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -75,7 +75,7 @@ export default function AdminRefundsPage() {
                   </div>
                 </div>
 
-                <div className="p-3 rounded-xl bg-[#374151]/40 text-xs">
+                <div className="p-3 rounded-xl bg-white/[0.05] text-xs">
                   <p className="text-gray-400"><span className="text-gray-500">UPI ID:</span> {r.upiId}</p>
                 </div>
 

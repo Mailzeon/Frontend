@@ -73,23 +73,23 @@ export function Sidebar() {
       )}
 
       <aside className={cn(
-        'w-64 h-screen bg-[#111827] border-r border-[#374151] flex flex-col',
+        'w-64 h-screen bg-[#0C0C12]/95 backdrop-blur-xl border-r border-white/[0.06] flex flex-col',
         'fixed left-0 top-0 z-50 transition-transform duration-200 ease-out',
         'md:translate-x-0', // Always visible on desktop
         mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'
       )}>
         {/* Logo + mobile close button */}
-        <div className="flex items-center gap-3 px-5 py-5 border-b border-[#374151]">
-          <div className="w-9 h-9 rounded-xl bg-purple-600 flex items-center justify-center shrink-0">
+        <div className="flex items-center gap-3 px-5 py-5 border-b border-white/[0.06]">
+          <div className="w-9 h-9 rounded-xl bg-brand-gradient flex items-center justify-center shrink-0 shadow-glow-purple">
             <Zap className="w-5 h-5 text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-bold text-white text-sm leading-none">Marketplace</p>
+            <p className="font-bold text-white text-sm leading-none tracking-tight">Marketplace</p>
             <p className="text-xs text-gray-500 capitalize mt-0.5">{user?.role} panel</p>
           </div>
           <button
             onClick={closeMobileSidebar}
-            className="md:hidden p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#374151]"
+            className="md:hidden p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/[0.06]"
           >
             <X className="w-4 h-4" />
           </button>
@@ -114,7 +114,7 @@ export function Sidebar() {
         </nav>
 
         {/* User + logout */}
-        <div className="p-3 border-t border-[#374151] space-y-1">
+        <div className="p-3 border-t border-white/[0.06] space-y-1">
           {user?.role === 'admin' && (
             <div className="flex items-center gap-2 px-3 py-1.5 mb-1">
               <Shield className="w-3.5 h-3.5 text-purple-400 shrink-0" />

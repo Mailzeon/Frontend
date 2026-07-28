@@ -57,7 +57,7 @@ export default function AdminWithdrawalsPage() {
             <p className="text-sm">No withdrawal requests.</p>
           </div>
         ) : (
-          <div className="divide-y divide-[#374151]/50">
+          <div className="divide-y divide-white/[0.05]">
             {reqs.map(r => (
               <div key={r._id} className="p-4 space-y-3">
                 <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -73,7 +73,7 @@ export default function AdminWithdrawalsPage() {
                 </div>
 
                 {/* Payment details */}
-                <div className="p-3 rounded-xl bg-[#374151]/40 text-xs space-y-1">
+                <div className="p-3 rounded-xl bg-white/[0.05] text-xs space-y-1">
                   <p className="text-gray-400"><span className="text-gray-500">Method:</span> {r.paymentMethod.toUpperCase()}</p>
                   {r.upiId && <p className="text-gray-400"><span className="text-gray-500">UPI ID:</span> {r.upiId}</p>}
                   {r.bankDetails?.accountNumber && <>

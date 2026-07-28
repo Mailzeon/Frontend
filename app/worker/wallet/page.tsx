@@ -88,13 +88,13 @@ export default function WorkerWalletPage() {
 
       {/* Transactions */}
       <div className="glass-card overflow-hidden">
-        <div className="p-4 border-b border-[#374151]">
+        <div className="p-4 border-b border-white/[0.06]">
           <h2 className="font-semibold text-white">Transaction History</h2>
         </div>
         {txns.length === 0 ? (
           <p className="text-center py-10 text-sm text-gray-500">No transactions yet.</p>
         ) : (
-          <div className="divide-y divide-[#374151]/50">
+          <div className="divide-y divide-white/[0.05]">
             {txns.map(t => (
               <div key={t._id} className="flex items-center justify-between px-4 py-3">
                 <div>
@@ -113,10 +113,10 @@ export default function WorkerWalletPage() {
       {/* Withdrawals */}
       {withdrawals.length > 0 && (
         <div className="glass-card overflow-hidden">
-          <div className="p-4 border-b border-[#374151]">
+          <div className="p-4 border-b border-white/[0.06]">
             <h2 className="font-semibold text-white">Withdrawal Requests</h2>
           </div>
-          <div className="divide-y divide-[#374151]/50">
+          <div className="divide-y divide-white/[0.05]">
             {withdrawals.map(w => (
               <div key={w._id} className="flex items-center justify-between px-4 py-3">
                 <div>

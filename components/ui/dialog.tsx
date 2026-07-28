@@ -29,11 +29,11 @@ const DialogContent = React.forwardRef<
     <DialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
-      className={cn('fixed left-[50%] top-[50%] z-50 w-full max-w-lg translate-x-[-50%] translate-y-[-50%] bg-[#1F2937] border border-[#374151] rounded-2xl p-6 shadow-card-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95', className)}
+      className={cn('fixed left-[50%] top-[50%] z-50 w-full max-w-lg translate-x-[-50%] translate-y-[-50%] bg-[#131318] border border-white/[0.06] rounded-2xl p-6 shadow-card-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95', className)}
       {...props}
     >
       {children}
-      <DialogClose className="absolute right-4 top-4 rounded-lg p-1 text-gray-400 hover:text-white hover:bg-[#374151] transition-colors">
+      <DialogClose className="absolute right-4 top-4 rounded-lg p-1 text-gray-400 hover:text-white hover:bg-white/[0.05] transition-colors">
         <X className="h-4 w-4" />
       </DialogClose>
     </DialogPrimitive.Content>

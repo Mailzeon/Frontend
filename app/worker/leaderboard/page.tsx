@@ -82,7 +82,7 @@ export default function WorkerLeaderboardPage() {
               )}
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-[#374151]">
+          <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-white/[0.06]">
             <div>
               <p className="text-xs text-gray-500">Completed</p>
               <p className="font-semibold text-white">{myStats.completedOrders ?? 0}</p>
@@ -103,7 +103,7 @@ export default function WorkerLeaderboardPage() {
 
       {/* Top 10 list */}
       <div className="glass-card overflow-hidden">
-        <div className="p-4 border-b border-[#374151] flex items-center gap-2">
+        <div className="p-4 border-b border-white/[0.06] flex items-center gap-2">
           <Trophy className="w-4 h-4 text-yellow-400" />
           <h2 className="font-semibold text-white">Top 10 Workers</h2>
         </div>
@@ -113,7 +113,7 @@ export default function WorkerLeaderboardPage() {
             <p className="text-sm">No workers ranked yet — complete some orders to be the first!</p>
           </div>
         ) : (
-          <div className="divide-y divide-[#374151]/50">
+          <div className="divide-y divide-white/[0.05]">
             {top.map((w: any, i: number) => (
               <div key={w._id} className="flex items-center gap-4 p-4">
                 <div className="w-8 text-center shrink-0">
@@ -123,7 +123,7 @@ export default function WorkerLeaderboardPage() {
                     <span className="text-gray-500 font-mono text-sm">#{i + 1}</span>
                   )}
                 </div>
-                <div className="w-9 h-9 rounded-full bg-[#374151] flex items-center justify-center shrink-0 overflow-hidden">
+                <div className="w-9 h-9 rounded-full bg-[#1C1C24] flex items-center justify-center shrink-0 overflow-hidden">
                   {w.workerId?.profileImage ? (
                     <img src={w.workerId.profileImage} alt={w.workerId?.name} className="w-full h-full object-cover" />
                   ) : (

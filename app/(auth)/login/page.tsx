@@ -40,14 +40,19 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[#0B1120] p-4">
-      <div className="w-full max-w-md">
+    <div className="relative min-h-screen flex flex-col items-center justify-center bg-[#08080D] p-4 overflow-hidden">
+      {/* Ambient glow — the one decorative flourish on this page, kept well
+          behind the content and never touching the form itself. */}
+      <div className="ambient-glow w-[32rem] h-[32rem] -top-40 -left-32" />
+      <div className="ambient-glow w-[26rem] h-[26rem] bottom-0 -right-24" style={{ animationDelay: '3s' }} />
+
+      <div className="relative w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center mx-auto mb-4">
-            <Zap className="w-7 h-7 text-purple-400" />
+          <div className="w-14 h-14 rounded-2xl bg-brand-gradient flex items-center justify-center mx-auto mb-4 shadow-glow-purple">
+            <Zap className="w-7 h-7 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-white">Welcome back</h1>
+          <h1 className="text-3xl font-bold text-white tracking-tight">Welcome back</h1>
           <p className="text-gray-400 mt-1 text-sm">Sign in to your Mailzeon account</p>
         </div>
 

@@ -52,8 +52,8 @@ export default function RegisterPage() {
       className={cn(
         'flex-1 flex flex-col items-center gap-2 p-4 rounded-xl border transition-all duration-150',
         role === r
-          ? 'border-purple-500 bg-purple-600/10 text-white'
-          : 'border-[#374151] text-gray-400 hover:border-[#4B5563]'
+          ? 'border-purple-500/60 bg-gradient-to-b from-purple-600/15 to-purple-600/5 text-white shadow-glow-purple'
+          : 'border-white/[0.06] text-gray-400 hover:border-white/[0.12] hover:bg-white/[0.02]'
       )}>
       <Icon className={cn('w-6 h-6', role === r ? 'text-purple-400' : 'text-gray-500')} />
       <span className="font-medium text-sm">{title}</span>
@@ -64,13 +64,16 @@ export default function RegisterPage() {
   const workerEarnLabel = `${100 - platformCommissionRate}%`;
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[#0B1120] p-4">
-      <div className="w-full max-w-md">
+    <div className="relative min-h-screen flex flex-col items-center justify-center bg-[#08080D] p-4 overflow-hidden">
+      <div className="ambient-glow w-[32rem] h-[32rem] -top-40 -right-32" />
+      <div className="ambient-glow w-[26rem] h-[26rem] bottom-0 -left-24" style={{ animationDelay: '3s' }} />
+
+      <div className="relative w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center mx-auto mb-4">
-            <Zap className="w-7 h-7 text-purple-400" />
+          <div className="w-14 h-14 rounded-2xl bg-brand-gradient flex items-center justify-center mx-auto mb-4 shadow-glow-purple">
+            <Zap className="w-7 h-7 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-white">Create account</h1>
+          <h1 className="text-3xl font-bold text-white tracking-tight">Create account</h1>
           <p className="text-gray-400 mt-1 text-sm">Join Mailzeon today</p>
         </div>
 

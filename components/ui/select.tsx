@@ -14,7 +14,7 @@ const SelectTrigger = React.forwardRef<
 >(({ className, children, ...props }, ref) => (
   <SelectPrimitive.Trigger
     ref={ref}
-    className={cn('flex h-10 w-full items-center justify-between rounded-xl border border-[#374151] bg-[#374151] px-3 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:cursor-not-allowed disabled:opacity-50', className)}
+    className={cn('flex h-10 w-full items-center justify-between rounded-xl border border-white/[0.06] bg-[#1C1C24] px-3 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:cursor-not-allowed disabled:opacity-50', className)}
     {...props}
   >
     {children}
@@ -36,7 +36,7 @@ const SelectContent = React.forwardRef<
       // the viewport. Now capped with an internal scroll so it always
       // stays fully within the visible screen.
       className={cn(
-        'relative z-50 min-w-[8rem] max-h-72 overflow-hidden rounded-xl border border-[#374151] bg-[#1F2937] text-white shadow-card-lg',
+        'relative z-50 min-w-[8rem] max-h-72 overflow-hidden rounded-xl border border-white/[0.06] bg-[#131318] text-white shadow-card-lg',
         className
       )}
       position={position}
@@ -56,7 +56,7 @@ const SelectItem = React.forwardRef<
 >(({ className, children, ...props }, ref) => (
   <SelectPrimitive.Item
     ref={ref}
-    className={cn('relative flex w-full cursor-default select-none items-center rounded-lg py-2 pl-8 pr-3 text-sm outline-none hover:bg-[#374151] focus:bg-[#374151]', className)}
+    className={cn('relative flex w-full cursor-default select-none items-center rounded-lg py-2 pl-8 pr-3 text-sm outline-none hover:bg-white/[0.05] focus:bg-[#1C1C24]', className)}
     {...props}
   >
     <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">

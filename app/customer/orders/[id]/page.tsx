@@ -280,7 +280,7 @@ export default function CustomerOrderDetail() {
           </div>
         )}
         {order.requestedEmail && (
-          <div className="col-span-2 pt-1 border-t border-[#374151]">
+          <div className="col-span-2 pt-1 border-t border-white/[0.06]">
             <p className="text-gray-500 text-xs flex items-center gap-1"><Mail className="w-3 h-3" /> Requested Email</p>
             <p className="text-gray-300 font-mono text-sm break-all">{order.requestedEmail}</p>
           </div>
@@ -329,7 +329,7 @@ export default function CustomerOrderDetail() {
             <div className="flex items-center gap-2">
               <p className="text-white font-mono text-sm break-all flex-1">{order.credentials!.email}</p>
               <button onClick={() => copyToClipboard(order.credentials!.email, 'Email')}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#374151] shrink-0">
+                className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/[0.05] shrink-0">
                 <Copy className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -342,18 +342,18 @@ export default function CustomerOrderDetail() {
                 {showPassword ? order.credentials!.password : '••••••••••'}
               </p>
               <button onClick={() => setShowPassword(!showPassword)}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#374151] shrink-0">
+                className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/[0.05] shrink-0">
                 {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
               </button>
               <button onClick={() => copyToClipboard(order.credentials!.password, 'Password')}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#374151] shrink-0">
+                className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/[0.05] shrink-0">
                 <Copy className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
 
           {order.credentials?.notes && (
-            <div className="space-y-1 pt-2 border-t border-[#374151]">
+            <div className="space-y-1 pt-2 border-t border-white/[0.06]">
               <p className="text-xs text-gray-500">Notes from worker</p>
               <p className="text-gray-300 text-sm">{order.credentials.notes}</p>
             </div>

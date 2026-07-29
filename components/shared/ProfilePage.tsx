@@ -1,12 +1,16 @@
 'use client';
-import { useState, useRef } from 'react';
-import { User as UserIcon, Lock, Save, Wallet, Phone, Camera, Loader2 } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { User as UserIcon, Lock, Save, Wallet, Phone, Camera, Loader2, Bell, BellOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
+import {
+  isPushSupported, getExistingSubscription,
+  enablePushNotifications, disablePushNotifications,
+} from '@/lib/pushNotifications';
 
 interface ProfilePageProps {
   /** Worker-only: shows UPI/bank default payment details section */
@@ -124,6 +128,38 @@ export function ProfilePage({ showPaymentDetails = false }: ProfilePageProps) {
     }
   };
 
+  // ── Push notifications (order alerts even when the site is closed) ────────
+  const [pushSupported, setPushSupported] = useState(false);
+  const [pushEnabled, setPushEnabled]     = useState(false);
+  const [pushLoading, setPushLoading]     = useState(false);
+  const [pushChecked, setPushChecked]     = useState(false);
+
+  useEffect(() => {
+    setPushSupported(isPushSupported());
+    getExistingSubscription()
+      .then(sub => setPushEnabled(!!sub))
+      .finally(() => setPushChecked(true));
+  }, []);
+
+  const togglePush = async () => {
+    setPushLoading(true);
+    try {
+      if (pushEnabled) {
+        await disablePushNotifications();
+        setPushEnabled(false);
+        toast.info('Push notifications turned off.');
+      } else {
+        await enablePushNotifications();
+        setPushEnabled(true);
+        toast.success('Push notifications enabled! You\'ll get alerts even when the site is closed.');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Could not update push notification settings.');
+    } finally {
+      setPushLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-2xl">
       <div>
@@ -169,6 +205,32 @@ export function ProfilePage({ showPaymentDetails = false }: ProfilePageProps) {
           <p className="text-xs text-gray-500 mt-0.5">JPG, PNG or WEBP — max 5MB</p>
         </div>
       </div>
+
+      {/* Push notifications */}
+      {pushChecked && pushSupported && (
+        <div className="glass-card p-5 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center shrink-0">
+              {pushEnabled ? <Bell className="w-5 h-5 text-purple-400" /> : <BellOff className="w-5 h-5 text-gray-500" />}
+            </div>
+            <div>
+              <p className="font-medium text-white text-sm">Push Notifications</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Get alerted on this device even when Mailzeon isn't open
+              </p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant={pushEnabled ? 'outline' : 'default'}
+            size="sm"
+            loading={pushLoading}
+            onClick={togglePush}
+          >
+            {pushEnabled ? 'Turn off' : 'Enable'}
+          </Button>
+        </div>
+      )}
 
       {/* Profile info */}
       <div className="glass-card p-5">

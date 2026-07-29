@@ -84,7 +84,7 @@ export function Sidebar() {
             <Zap className="w-5 h-5 text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-bold text-white text-sm leading-none tracking-tight">Marketplace</p>
+            <p className="font-bold text-white text-sm leading-none tracking-tight">Mailzeon</p>
             <p className="text-xs text-gray-500 capitalize mt-0.5">{user?.role} panel</p>
           </div>
           <button

@@ -7,7 +7,7 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'sw
 const jetbrainsMono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-jetbrains-mono', display: 'swap' });
 
 export const metadata: Metadata = {
-  title: { default: 'Marketplace', template: '%s | Marketplace' },
+  title: { default: 'Mailzeon', template: '%s | Mailzeon' },
   description: 'Premium marketplace platform',
 };
 

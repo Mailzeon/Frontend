@@ -1,174 +1,377 @@
-'use client';
-import { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Save, IndianRupee, Clock, Timer, Percent } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Skeleton } from '@/components/ui/skeleton';
-import { toast } from '@/components/ui/toast';
-import { api } from '@/lib/api';
-import { formatDate } from '@/lib/utils';
+import { Router } from 'express';
+import { authenticate } from '../middleware/auth.middleware';
+import { requireRole }  from '../middleware/role.middleware';
+import { validate }     from '../middleware/validate.middleware';
+import { updateSettingSchema } from '../validators/settings.validator';
+import { User }              from '../models/User.model';
+import { Order }             from '../models/Order.model';
+import { Settings }          from '../models/Settings.model';
+import { WithdrawRequest }   from '../models/WithdrawRequest.model';
+import { RefundRequest }     from '../models/RefundRequest.model';
+import { Dispute }           from '../models/Dispute.model';
+import { Rating }            from '../models/Rating.model';
+import { Wallet }             from '../models/Wallet.model';
+import { WorkerLevelModel }  from '../models/WorkerLevel.model';
+import { Transaction }        from '../models/Transaction.model';
+import { Notification }       from '../models/Notification.model';
+import { withdrawalService } from '../services/withdrawal.service';
+import { refundService }     from '../services/refund.service';
+import { disputeService }    from '../services/dispute.service';
+import { notificationService } from '../services/notification.service';
+import { invalidateSettingsCache } from '../services/order.service';
+import { emitToUser, EVENTS }  from '../socket/events';
+import { sendSuccess, sendError } from '../utils/response';
+import { Request, Response }  from 'express';
 
-interface SettingDoc {
-  _id: string;
-  key: string;
-  value: string;
-  description: string;
-  updatedAt: string;
-}
+const router = Router();
+router.use(authenticate, requireRole('admin'));
 
-// REWORKED: 'orderPrice' and 'workerEarning' are gone (customer now sets
-// their own order amount). Replaced with 'minimumOrderAmount' and
-// 'platformCommissionRate'. Only keys listed here are ever displayed —
-// this also means any old orphaned 'orderPrice'/'workerEarning' documents
-// still sitting in the database (from before this change) are simply
-// hidden from view rather than confusingly shown as editable.
-const SETTING_META: Record<string, { label: string; icon: React.ElementType; suffix: string; order: number; max?: number }> = {
-  minimumOrderAmount:     { label: 'Minimum Order Amount',   icon: IndianRupee, suffix: '₹',       order: 1 },
-  platformCommissionRate: { label: 'Platform Commission',    icon: Percent,     suffix: '%',       order: 2, max: 100 },
-  orderTimerMinutes:      { label: 'Credential Timer',       icon: Timer,       suffix: 'minutes', order: 3 },
-  autoCompleteHours:      { label: 'Auto-Complete Window',   icon: Clock,       suffix: 'hours',   order: 4 },
-};
+// ── Stats ─────────────────────────────────────────────────────────────────────
+router.get('/stats', async (_req: Request, res: Response) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
-const KNOWN_KEYS = Object.keys(SETTING_META);
+  const [
+    totalCustomers, totalWorkers, onlineWorkers,
+    pendingOrders,  completedOrders, totalOrders,
+    pendingWithdrawals, pendingRefunds, openDisputes, todayOrders,
+  ] = await Promise.all([
+    User.countDocuments({ role: 'customer' }),
+    User.countDocuments({ role: 'worker' }),
+    User.countDocuments({ role: 'worker', isOnline: true }),
+    Order.countDocuments({ status: 'pending' }),
+    Order.countDocuments({ status: 'completed' }),
+    Order.countDocuments(),
+    WithdrawRequest.countDocuments({ status: 'pending' }),
+    RefundRequest.countDocuments({ status: 'pending' }),
+    Dispute.countDocuments({ status: 'open' }),
+    Order.countDocuments({ createdAt: { $gte: today } }),
+  ]);
 
-export default function AdminSettingsPage() {
-  const [settings, setSettings] = useState<SettingDoc[]>([]);
-  const [loading,  setLoading]  = useState(true);
-  const [edited,   setEdited]   = useState<Record<string, string>>({});
-  const [saving,   setSaving]   = useState<string | null>(null);
+  // NEW: platformCommission is now tracked per-order (locked-in at creation).
+  // This aggregation reports both gross revenue collected from customers
+  // AND the platform's actual net commission earned — two different,
+  // both-useful numbers now that pricing is customer-set rather than fixed.
+  const revenueAgg = await Order.aggregate([
+    { $match: { status: 'completed' } },
+    {
+      $group: {
+        _id:   null,
+        total: { $sum: '$amount' },
+        today: {
+          $sum: { $cond: [{ $gte: ['$completedAt', today] }, '$amount', 0] },
+        },
+        commissionTotal: { $sum: '$platformCommission' },
+        commissionToday: {
+          $sum: { $cond: [{ $gte: ['$completedAt', today] }, '$platformCommission', 0] },
+        },
+      },
+    },
+  ]);
+  const revenue = revenueAgg[0] ?? { total: 0, today: 0, commissionTotal: 0, commissionToday: 0 };
 
-  const fetchSettings = async () => {
-    try {
-      const { data } = await api.get('/admin/settings');
-      if (data.success) {
-        // Only show settings we actively use — hides orphaned legacy keys
-        const known = data.data.filter((s: SettingDoc) => KNOWN_KEYS.includes(s.key));
-        const sorted = known.sort((a: SettingDoc, b: SettingDoc) =>
-          SETTING_META[a.key].order - SETTING_META[b.key].order
-        );
-        setSettings(sorted);
-      }
-    } catch {
-      toast.error('Failed to load settings.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  sendSuccess(res, 'Stats fetched.', {
+    totalCustomers, totalWorkers, onlineWorkers,
+    pendingOrders,  completedOrders, totalOrders, todayOrders,
+    pendingWithdrawals, pendingRefunds, openDisputes,
+    totalRevenue:    revenue.total,           // Gross — total collected from customers
+    todayRevenue:    revenue.today,
+    totalCommission: revenue.commissionTotal, // NEW: platform's actual net earnings
+    todayCommission: revenue.commissionToday, // NEW
+  });
+});
 
-  useEffect(() => { fetchSettings(); }, []);
+// ── Weekly Analytics ──────────────────────────────────────────────────────────
+router.get('/analytics', async (_req: Request, res: Response) => {
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+  sevenDaysAgo.setHours(0, 0, 0, 0);
 
-  const handleChange = (key: string, value: string) => {
-    setEdited(prev => ({ ...prev, [key]: value }));
-  };
+  const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  const handleSave = async (key: string) => {
-    const newValue = edited[key];
-    if (newValue === undefined || newValue.trim() === '') {
-      toast.error('Value cannot be empty.');
-      return;
-    }
-    const numValue = Number(newValue);
-    if (isNaN(numValue) || numValue <= 0) {
-      toast.error('Value must be a positive number.');
-      return;
-    }
-    const max = SETTING_META[key]?.max;
-    if (max !== undefined && numValue > max) {
-      toast.error(`Value cannot exceed ${max}.`);
-      return;
-    }
+  const [revenueAgg, ordersAgg] = await Promise.all([
+    Order.aggregate([
+      { $match: { status: 'completed', completedAt: { $gte: sevenDaysAgo } } },
+      {
+        $group: {
+          _id:     { $dateToString: { format: '%Y-%m-%d', date: '$completedAt' } },
+          revenue: { $sum: '$amount' },
+          // NEW: commission earned per day, for a separate chart series
+          commission: { $sum: '$platformCommission' },
+        },
+      },
+    ]),
+    Order.aggregate([
+      { $match: { createdAt: { $gte: sevenDaysAgo } } },
+      {
+        $group: {
+          _id:    { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+          orders: { $sum: 1 },
+        },
+      },
+    ]),
+  ]);
 
-    setSaving(key);
-    try {
-      const { data } = await api.put(`/admin/settings/${key}`, { value: newValue.trim() });
-      if (data.success) {
-        toast.success('Setting updated. Takes effect immediately for new orders.');
-        setSettings(prev => prev.map(s => s.key === key ? { ...s, value: newValue.trim(), updatedAt: new Date().toISOString() } : s));
-        setEdited(prev => { const p = { ...prev }; delete p[key]; return p; });
-      }
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      toast.error(msg || 'Failed to update setting.');
-    } finally {
-      setSaving(null);
-    }
-  };
+  const revenueMap: Record<string, number> = {};
+  const commissionMap: Record<string, number> = {};
+  revenueAgg.forEach(r => { revenueMap[r._id] = r.revenue; commissionMap[r._id] = r.commission; });
 
-  return (
-    <div className="space-y-6 max-w-2xl">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center shrink-0">
-          <SettingsIcon className="w-5 h-5 text-purple-400" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold text-white">Platform Settings</h1>
-          <p className="text-gray-400 text-sm mt-0.5">Changes apply immediately to new orders</p>
-        </div>
-      </div>
+  const ordersMap: Record<string, number> = {};
+  ordersAgg.forEach(o => { ordersMap[o._id] = o.orders; });
 
-      {loading ? (
-        <div className="space-y-4">
-          {Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-24" />)}
-        </div>
-      ) : settings.length === 0 ? (
-        <div className="glass-card text-center py-16 text-gray-500">
-          <SettingsIcon className="w-10 h-10 mx-auto mb-2 opacity-20" />
-          <p className="text-sm">No settings found.</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {settings.map(s => {
-            const meta = SETTING_META[s.key];
-            const Icon = meta.icon;
-            const currentValue = edited[s.key] ?? s.value;
-            const hasChanged   = edited[s.key] !== undefined && edited[s.key] !== s.value;
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    d.setHours(0, 0, 0, 0);
+    const dateStr = d.toISOString().split('T')[0];
+    days.push({
+      day:        DAY_NAMES[d.getDay()],
+      revenue:    revenueMap[dateStr] ?? 0,
+      commission: commissionMap[dateStr] ?? 0,
+      orders:     ordersMap[dateStr] ?? 0,
+    });
+  }
 
-            return (
-              <div key={s.key} className="glass-card p-5">
-                <div className="flex items-start gap-3 mb-3">
-                  <div className="w-9 h-9 rounded-xl bg-[#1C1C24] flex items-center justify-center shrink-0">
-                    <Icon className="w-4.5 h-4.5 text-gray-300" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-white">{meta.label}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{s.description}</p>
-                  </div>
-                </div>
+  sendSuccess(res, 'Analytics fetched.', days);
+});
 
-                <div className="flex items-end gap-3">
-                  <div className="flex-1 space-y-1.5">
-                    <Label>Current value ({meta.suffix})</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      max={meta.max}
-                      value={currentValue}
-                      onChange={e => handleChange(s.key, e.target.value)}
-                    />
-                  </div>
-                  <Button
-                    onClick={() => handleSave(s.key)}
-                    disabled={!hasChanged}
-                    loading={saving === s.key}
-                  >
-                    <Save className="w-4 h-4 mr-2" /> Save
-                  </Button>
-                </div>
+// ── Settings ──────────────────────────────────────────────────────────────────
+router.get('/settings', async (_req: Request, res: Response) => {
+  const settings = await Settings.find().sort({ key: 1 });
+  sendSuccess(res, 'Settings fetched.', settings);
+});
 
-                <p className="text-xs text-gray-600 mt-2">Last updated: {formatDate(s.updatedAt)}</p>
-              </div>
-            );
-          })}
-        </div>
-      )}
+router.put('/settings/:key', validate(updateSettingSchema), async (req: Request, res: Response) => {
+  const { key }   = req.params;
+  const { value } = req.body;
+  const numValue  = Number(value);
 
-      <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/20">
-        <p className="text-sm text-blue-400">
-          ℹ️ Customers now set their own order amount (minimum enforced here). The commission rate is
-          locked in per-order at creation time — changing it here only affects orders placed afterward.
-        </p>
-      </div>
-    </div>
+  if (isNaN(numValue) || numValue <= 0) {
+    sendError(res, 'Value must be a positive number.', 400);
+    return;
+  }
+
+  // NEW: platformCommissionRate is a percentage — cap it at a sane maximum
+  // so a typo (e.g. "150") can't silently break every future order's math.
+  if (key === 'platformCommissionRate' && numValue > 100) {
+    sendError(res, 'Commission rate cannot exceed 100%.', 400);
+    return;
+  }
+
+  const setting = await Settings.findOneAndUpdate(
+    { key },
+    { value },
+    { new: true }
   );
-}
+
+  if (!setting) { sendError(res, 'Setting not found.', 404); return; }
+
+  invalidateSettingsCache();
+
+  sendSuccess(res, 'Setting updated successfully.', setting);
+});
+
+// ── All orders ────────────────────────────────────────────────────────────────
+router.get('/orders', async (req: Request, res: Response) => {
+  const { status, page = '1', limit = '20' } = req.query;
+  const filter = status ? { status } : {};
+  const skip   = (Number(page) - 1) * Number(limit);
+
+  const [orders, total] = await Promise.all([
+    Order.find(filter)
+      .select('-credentials')
+      .populate('customerId workerId', 'name email')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit)),
+    Order.countDocuments(filter),
+  ]);
+
+  sendSuccess(res, 'Orders fetched.', {
+    orders,
+    total,
+    page:       Number(page),
+    totalPages: Math.ceil(total / Number(limit)),
+  });
+});
+
+// ── All users ─────────────────────────────────────────────────────────────────
+router.get('/users', async (req: Request, res: Response) => {
+  const { role } = req.query;
+  const filter   = role ? { role } : { role: { $ne: 'admin' } };
+  const users    = await User.find(filter).sort({ createdAt: -1 });
+  sendSuccess(res, 'Users fetched.', users);
+});
+
+// ── Approve / suspend worker ──────────────────────────────────────────────────
+router.patch('/users/:id/approve', async (req: Request, res: Response) => {
+  const { isApproved } = req.body;
+  const user = await User.findOneAndUpdate(
+    { _id: req.params.id, role: 'worker' },
+    { isApproved },
+    { new: true }
+  );
+  if (!user) { sendError(res, 'Worker not found.', 404); return; }
+
+  if (isApproved) {
+    await notificationService.create({
+      userId:  user._id,
+      title:   '✅ Account Approved!',
+      message: 'Your worker account has been approved. You can now accept orders from the marketplace.',
+      type:    'system',
+    });
+    emitToUser(user._id.toString(), EVENTS.WORKER_APPROVED, {});
+  }
+
+  sendSuccess(res, `Worker ${isApproved ? 'approved' : 'suspended'}.`, user);
+});
+
+// New: per-user detail view — full history in one place instead of admin
+// having to cross-reference the Orders/Disputes pages manually.
+// Works for both workers and customers: a worker gets their earnings stats,
+// wallet, and rating history on top of shared order/dispute history; a
+// customer just gets their order/dispute history.
+router.get('/users/:id/detail', async (req: Request, res: Response) => {
+  const user = await User.findById(req.params.id);
+  if (!user) { sendError(res, 'User not found.', 404); return; }
+
+  const isWorker    = user.role === 'worker';
+  const partyFilter = isWorker ? { workerId: user._id } : { customerId: user._id };
+
+  const [orders, disputes, workerLevel, wallet, recentRatings] = await Promise.all([
+    Order.find(partyFilter)
+      .select('-credentials')
+      .populate('customerId workerId', 'name email')
+      .sort({ createdAt: -1 })
+      .limit(25),
+    Dispute.find(partyFilter)
+      .populate('orderId', 'serviceName')
+      .sort({ createdAt: -1 })
+      .limit(25),
+    isWorker ? WorkerLevelModel.findOne({ workerId: user._id }) : null,
+    isWorker ? Wallet.findOne({ userId: user._id }) : null,
+    isWorker
+      ? Rating.find({ workerId: user._id })
+          .populate('customerId', 'name')
+          .sort({ createdAt: -1 })
+          .limit(10)
+      : null,
+  ]);
+
+  sendSuccess(res, 'User detail fetched.', {
+    user,
+    orders,
+    disputes,
+    workerLevel,
+    wallet,
+    recentRatings,
+  });
+});
+
+// ── Withdrawals ───────────────────────────────────────────────────────────────
+router.get('/withdrawals', async (_req: Request, res: Response) => {
+  const reqs = await withdrawalService.getAllRequests();
+  sendSuccess(res, 'Withdrawal requests fetched.', reqs);
+});
+
+router.patch('/withdrawals/:id', async (req: Request, res: Response) => {
+  const { status, adminNote } = req.body;
+  if (!['approved', 'rejected', 'completed'].includes(status)) {
+    sendError(res, 'Invalid status.', 400); return;
+  }
+  const wr = await withdrawalService.updateStatus(req.params.id, status, adminNote);
+  sendSuccess(res, 'Withdrawal updated.', wr);
+});
+
+// ── Refunds ───────────────────────────────────────────────────────────────────
+router.get('/refunds', async (_req: Request, res: Response) => {
+  const refunds = await refundService.getAllRefunds();
+  sendSuccess(res, 'Refund requests fetched.', refunds);
+});
+
+router.patch('/refunds/:id', async (req: Request, res: Response) => {
+  const { status, adminNote } = req.body;
+  if (!['completed', 'rejected'].includes(status)) {
+    sendError(res, 'Invalid status.', 400); return;
+  }
+  const refund = await refundService.updateStatus(req.params.id, status, adminNote);
+  sendSuccess(res, 'Refund updated.', refund);
+});
+
+// ── Disputes ──────────────────────────────────────────────────────────────────
+router.get('/disputes', async (_req: Request, res: Response) => {
+  const disputes = await disputeService.getAll();
+  sendSuccess(res, 'Disputes fetched.', disputes);
+});
+
+router.patch('/disputes/:id', async (req: Request, res: Response) => {
+  const { status, adminNote } = req.body;
+  if (!['resolved', 'rejected'].includes(status)) {
+    sendError(res, 'Status must be resolved or rejected.', 400); return;
+  }
+  const d = await disputeService.resolve(req.params.id, status, adminNote);
+  sendSuccess(res, 'Dispute updated.', d);
+});
+
+// ── Leaderboard ───────────────────────────────────────────────────────────────
+router.get('/leaderboard', async (_req: Request, res: Response) => {
+  const top = await WorkerLevelModel.find()
+    .populate('workerId', 'name email profileImage level')
+    .sort({ completedOrders: -1, averageRating: -1 })
+    .limit(10);
+  sendSuccess(res, 'Leaderboard fetched.', top);
+});
+
+// ── Danger zone: reset all test/activity data ─────────────────────────────────
+// Wipes every order, dispute, refund/withdraw request, transaction,
+// notification, and rating, and zeroes out every wallet + worker level —
+// leaving every USER ACCOUNT (name/email/password/role/approval status/
+// profile picture), Settings, and push subscriptions completely untouched.
+// This is for going from "tested with dummy activity" to "launch-ready with
+// real accounts, zero history" without recreating any accounts.
+//
+// Gated by requireRole('admin') above (whole router) PLUS a typed
+// confirmation phrase in the body, so it can never fire from a stray click —
+// there is no undo once this runs.
+router.post('/reset-test-data', async (req: Request, res: Response) => {
+  const { confirm } = req.body;
+  if (confirm !== 'RESET') {
+    sendError(res, 'Confirmation phrase did not match. Nothing was deleted.', 400);
+    return;
+  }
+
+  const [orders, disputes, refunds, withdrawals, transactions, notifications, ratings] =
+    await Promise.all([
+      Order.deleteMany({}),
+      Dispute.deleteMany({}),
+      RefundRequest.deleteMany({}),
+      WithdrawRequest.deleteMany({}),
+      Transaction.deleteMany({}),
+      Notification.deleteMany({}),
+      Rating.deleteMany({}),
+    ]);
+
+  const walletReset = await Wallet.updateMany(
+    {},
+    { $set: { balance: 0, pendingBalance: 0, totalEarned: 0 } }
+  );
+  const levelReset = await WorkerLevelModel.updateMany(
+    {},
+    { $set: { level: 'bronze', completedOrders: 0, totalEarnings: 0, successRate: 100, averageRating: 0 } }
+  );
+
+  sendSuccess(res, 'All test data cleared. User accounts were left untouched.', {
+    ordersDeleted:        orders.deletedCount,
+    disputesDeleted:      disputes.deletedCount,
+    refundsDeleted:       refunds.deletedCount,
+    withdrawalsDeleted:   withdrawals.deletedCount,
+    transactionsDeleted:  transactions.deletedCount,
+    notificationsDeleted: notifications.deletedCount,
+    ratingsDeleted:       ratings.deletedCount,
+    walletsReset:         walletReset.modifiedCount,
+    workerLevelsReset:    levelReset.modifiedCount,
+  });
+});
+
+export default router;

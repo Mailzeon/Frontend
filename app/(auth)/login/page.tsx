@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Eye, EyeOff, Zap } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -49,9 +49,7 @@ export default function LoginPage() {
       <div className="relative w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-brand-gradient flex items-center justify-center mx-auto mb-4 shadow-glow-purple">
-            <Zap className="w-7 h-7 text-white" />
-          </div>
+          <img src="/icon-192.png" alt="Mailzeon" className="w-14 h-14 rounded-2xl mx-auto mb-4 shadow-glow-purple" />
           <h1 className="text-3xl font-bold text-white tracking-tight">Welcome back</h1>
           <p className="text-gray-400 mt-1 text-sm">Sign in to your Mailzeon account</p>
         </div>

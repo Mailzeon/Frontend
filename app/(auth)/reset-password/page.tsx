@@ -2,7 +2,7 @@
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Eye, EyeOff, Zap, ArrowLeft } from 'lucide-react';
+import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -43,9 +43,7 @@ function ResetPasswordForm() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#08080D] p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center mx-auto mb-4">
-            <Zap className="w-7 h-7 text-purple-400" />
-          </div>
+          <img src="/icon-192.png" alt="Mailzeon" className="w-14 h-14 rounded-2xl mx-auto mb-4" />
           <h1 className="text-3xl font-bold text-white">Set a new password</h1>
           <p className="text-gray-400 mt-1 text-sm">Make it something you'll remember</p>
         </div>

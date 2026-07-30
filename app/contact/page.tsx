@@ -1,4 +1,4 @@
-import { Mail, Phone, MapPin, Zap } from 'lucide-react';
+import { Mail, Phone, MapPin } from 'lucide-react';
 import Link from 'next/link';
 
 export const metadata = { title: 'Contact Us' };
@@ -8,9 +8,7 @@ export default function ContactPage() {
     <div className="min-h-screen bg-[#08080D] p-4 md:p-8">
       <div className="max-w-2xl mx-auto space-y-8">
         <Link href="/login" className="flex items-center gap-2 w-fit">
-          <div className="w-9 h-9 rounded-xl bg-purple-600 flex items-center justify-center">
-            <Zap className="w-5 h-5 text-white" />
-          </div>
+          <img src="/icon-192.png" alt="Mailzeon" className="w-9 h-9 rounded-xl" />
           <span className="font-bold text-white">Mailzeon</span>
         </Link>
 

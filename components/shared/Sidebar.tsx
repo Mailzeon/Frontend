@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, ShoppingBag, Wallet, Store, ClipboardList,
-  Users, AlertTriangle, BarChart3, LogOut, Zap, Shield, Settings,
+  Users, AlertTriangle, BarChart3, LogOut, Shield, Settings,
   Undo2, X, User, Trophy
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -80,9 +80,7 @@ export function Sidebar() {
       )}>
         {/* Logo + mobile close button */}
         <div className="flex items-center gap-3 px-5 py-5 border-b border-white/[0.06]">
-          <div className="w-9 h-9 rounded-xl bg-brand-gradient flex items-center justify-center shrink-0 shadow-glow-purple">
-            <Zap className="w-5 h-5 text-white" />
-          </div>
+          <img src="/icon-192.png" alt="Mailzeon" className="w-9 h-9 rounded-xl shrink-0 shadow-glow-purple" />
           <div className="flex-1 min-w-0">
             <p className="font-bold text-white text-sm leading-none tracking-tight">Mailzeon</p>
             <p className="text-xs text-gray-500 capitalize mt-0.5">{user?.role} panel</p>

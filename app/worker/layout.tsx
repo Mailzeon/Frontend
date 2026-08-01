@@ -1,11 +1,9 @@
 import { Sidebar } from '@/components/shared/Sidebar';
 import { Navbar } from '@/components/shared/Navbar';
-import { WorkerApprovalListener } from '@/components/shared/WorkerApprovalListener';
 
 export default function WorkerLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-[#08080D] flex">
-      <WorkerApprovalListener />
       <Sidebar />
       <div className="flex-1 ml-0 md:ml-64 flex flex-col min-h-screen">
         <Navbar title="Worker Panel" />

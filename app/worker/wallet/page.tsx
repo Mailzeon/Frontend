@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { onSocketReady, SOCKET_EVENTS } from '@/lib/socket';
 
 export default function WorkerWalletPage() {
   const [wallet, setWallet]         = useState<any>(null);
@@ -37,6 +38,20 @@ export default function WorkerWalletPage() {
   };
 
   useEffect(() => { fetchAll(); }, []);
+
+  // NEW: the backend already emits WITHDRAWAL_DONE when an admin marks a
+  // withdrawal request as paid/rejected — nothing in the frontend was
+  // listening for it anywhere, so a worker's balance/withdrawal history
+  // stayed stale until they manually refreshed the page.
+  useEffect(() => {
+    let cleanup: (() => void) | undefined;
+    onSocketReady((socket) => {
+      const onDone = () => fetchAll();
+      socket.on(SOCKET_EVENTS.WITHDRAWAL_DONE, onDone);
+      cleanup = () => socket.off(SOCKET_EVENTS.WITHDRAWAL_DONE, onDone);
+    });
+    return () => cleanup?.();
+  }, []);
 
   const submitWithdrawal = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -66,5 +66,6 @@ export const SOCKET_EVENTS = {
   NEW_CODE_REQUESTED: 'new-code-requested',
   WITHDRAWAL_DONE:    'withdrawal-done',
   WORKER_APPROVED:    'worker-approved',
+  WORKER_SUSPENDED:   'worker-suspended',
   NOTIFICATION:       'notification',
 } as const;

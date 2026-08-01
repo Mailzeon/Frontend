@@ -59,9 +59,18 @@ export default function WorkerOrderDetail() {
     if (!socket) return;
     socket.on(SOCKET_EVENTS.CODE_REQUESTED,     () => { toast.info('Customer requested a verification code!'); fetchOrder(); });
     socket.on(SOCKET_EVENTS.NEW_CODE_REQUESTED, () => { toast.info('Customer requested a new verification code!'); fetchOrder(); });
+    // NEW: previously missing — the order could change status (auto-cancel
+    // after the customer's verification request went unanswered, customer
+    // manually confirming success, admin resolving a dispute, etc.) while
+    // a worker had this exact page open, and they'd see stale data until a
+    // manual refresh.
+    socket.on(SOCKET_EVENTS.ORDER_CANCELLED, () => { toast.error('This order was cancelled.'); fetchOrder(); });
+    socket.on(SOCKET_EVENTS.ORDER_COMPLETED, () => { toast.success('Order completed! Earnings released.'); fetchOrder(); });
     return () => {
       socket.off(SOCKET_EVENTS.CODE_REQUESTED);
       socket.off(SOCKET_EVENTS.NEW_CODE_REQUESTED);
+      socket.off(SOCKET_EVENTS.ORDER_CANCELLED);
+      socket.off(SOCKET_EVENTS.ORDER_COMPLETED);
     };
   }, [fetchOrder]);
 

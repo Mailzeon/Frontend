@@ -45,6 +45,10 @@ export interface Order {
   updatedAt:               string;
   refundEligible?:         boolean;
   refundStatus?:           'pending' | 'completed' | 'rejected' | null;
+  // NEW: true when this cancelled order was refunded via the instant
+  // wallet-credit system (see order.service.ts getOrder()) rather than the
+  // old manual UPI refund-request flow.
+  walletCredited?:         boolean;
 }
 
 // ─── Wallet ───────────────────────────────────────────────────────────────────

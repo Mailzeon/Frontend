@@ -1,256 +1,563 @@
-'use client';
-import { useState, useEffect } from 'react';
-import { ShoppingBag, Plus, Shuffle, Edit3, Check, IndianRupee, Phone } from 'lucide-react';
-import { OrderStatusBadge } from '@/components/shared/OrderStatusBadge';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { toast } from '@/components/ui/toast';
-import { api } from '@/lib/api';
-import { shortId, timeAgo, formatCurrency, cn } from '@/lib/utils';
-import { EMAIL_DOMAINS } from '@/lib/emailDomains';
-import { openCashfreeCheckout } from '@/lib/cashfree';
-import { useAuthStore } from '@/store/authStore';
-import { useSettingsStore } from '@/store/settingsStore';
-import { Order } from '@/types';
-import Link from 'next/link';
+import { Order, IOrder }        from '../models/Order.model';
+import { Dispute }              from '../models/Dispute.model';
+import { RefundRequest }        from '../models/RefundRequest.model';
+import { Transaction }          from '../models/Transaction.model';
+import { Wallet }               from '../models/Wallet.model';
+import { Notification }        from '../models/Notification.model';
+import { User }                 from '../models/User.model';
+import { Settings }             from '../models/Settings.model';
+import { walletService }        from './wallet.service';
+import { notificationService }  from './notification.service';
+import { workerLevelService }   from './workerLevel.service';
+import { paymentService }       from './payment.service';
+import { startOrderTimer, clearOrderTimer } from '../utils/orderTimer';
+import { emitToUser, emitToMarketplace, EVENTS } from '../socket/events';
 
-export default function CustomerOrdersPage() {
-  const { user, updateUser } = useAuthStore();
-  const { minimumOrderAmount, platformCommissionRate, fetchSettings } = useSettingsStore();
-  const [orders, setOrders]     = useState<Order[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [creating, setCreating] = useState(false);
+const throwErr = (msg: string, code = 400): never => {
+  throw Object.assign(new Error(msg), { statusCode: code });
+};
 
-  const [service, setService]     = useState('');
-  const [domain, setDomain]       = useState('');
-  const [emailType, setEmailType] = useState<'random' | 'custom'>('random');
-  const [customLocal, setCustomLocal] = useState('');
-  const [amount, setAmount]       = useState('');
-  const [phone, setPhone]         = useState('');
+// ─── Settings cache (5-minute TTL) ───────────────────────────────────────────
+const settingsCache: Record<string, { value: string; expiresAt: number }> = {};
+const SETTINGS_TTL = 5 * 60 * 1000; // 5 minutes
 
-  const fetchOrders = async () => {
-    try {
-      const { data } = await api.get('/orders/my');
-      if (data.success) setOrders(data.data);
-    } catch { toast.error('Failed to load orders.'); }
-    finally { setLoading(false); }
+const getSetting = async (key: string, fallback: string): Promise<string> => {
+  const now = Date.now();
+  if (settingsCache[key] && settingsCache[key].expiresAt > now) {
+    return settingsCache[key].value;
+  }
+  const s = await Settings.findOne({ key }).lean();
+  const value = s?.value ?? fallback;
+  settingsCache[key] = { value, expiresAt: now + SETTINGS_TTL };
+  return value;
+};
+
+export const invalidateSettingsCache = (): void => {
+  Object.keys(settingsCache).forEach(k => delete settingsCache[k]);
+};
+
+// FIX: 'orderPrice'/'workerEarning' are gone — customer now sets their own
+// amount. Expanded to include orderTimerMinutes/autoCompleteHours too — these
+// were previously hardcoded ("10 minutes", "24 hours") in several frontend
+// pages instead of being read from here, so admin changes to those settings
+// never actually showed up anywhere outside the Settings page itself.
+export const getPublicSettings = async (): Promise<{
+  minimumOrderAmount: number;
+  platformCommissionRate: number;
+  orderTimerMinutes: number;
+  autoCompleteHours: number;
+}> => {
+  const [minimumOrderAmount, platformCommissionRate, orderTimerMinutes, autoCompleteHours] = await Promise.all([
+    getSetting('minimumOrderAmount', '15'),
+    getSetting('platformCommissionRate', '15'),
+    getSetting('orderTimerMinutes', '10'),
+    getSetting('autoCompleteHours', '24'),
+  ]);
+  return {
+    minimumOrderAmount: parseInt(minimumOrderAmount),
+    platformCommissionRate: parseInt(platformCommissionRate),
+    orderTimerMinutes: parseInt(orderTimerMinutes),
+    autoCompleteHours: parseInt(autoCompleteHours),
   };
+};
 
-  useEffect(() => { fetchOrders(); fetchSettings(); }, []);
+const generateRandomLocalPart = (): string => {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let result = 'user';
+  for (let i = 0; i < 8; i++) {
+    result += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return result;
+};
 
-  const resetModal = () => {
-    setService(''); setDomain(''); setEmailType('random'); setCustomLocal('');
-    setAmount(''); setPhone('');
-  };
-
-  const createOrder = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!service.trim()) { toast.error('Enter a service name.'); return; }
-    if (!domain) { toast.error('Select an email domain.'); return; }
-    if (emailType === 'custom' && !customLocal.trim()) { toast.error('Enter your custom email name.'); return; }
-    const numAmount = Number(amount);
-    if (!amount || isNaN(numAmount) || numAmount < minimumOrderAmount) {
-      toast.error(`Minimum order amount is ₹${minimumOrderAmount}.`);
-      return;
+export const orderService = {
+  // ── Customer: create order ────────────────────────────────────────────────
+  // REWORKED for Cashfree integration:
+  //   1. Customer now sets their own `amount` — validated here against the
+  //      LIVE minimumOrderAmount setting (Zod only enforces a bare ₹1
+  //      sanity floor, not the real business minimum — see order.validator.ts).
+  //   2. Commission (15%) is computed and LOCKED at creation time — later
+  //      changes to platformCommissionRate never retroactively affect
+  //      already-created orders.
+  //   3. Phone number is required by Cashfree — reused from the customer's
+  //      profile if already saved, otherwise the provided value is saved
+  //      to their profile for next time.
+  //   4. The order starts as 'payment_pending' — NOT visible in the
+  //      marketplace — and a corresponding Cashfree order is created.
+  //      It only becomes 'pending' (marketplace-visible) once
+  //      paymentService confirms the payment succeeded (webhook or verify).
+  async createOrder(
+    customerId: string,
+    serviceName: string,
+    domain: string,
+    emailType: 'random' | 'custom',
+    amount: number,
+    phone: string | undefined,
+    customLocalPart?: string,
+    useWalletCredit?: boolean
+  ): Promise<{ order: IOrder; paymentSessionId: string | null; paidWithWallet: boolean }> {
+    const minAmount = parseInt(await getSetting('minimumOrderAmount', '15'));
+    if (amount < minAmount) {
+      throwErr(`Minimum order amount is ₹${minAmount}.`, 400);
     }
-    if (!user?.phone && !/^[6-9]\d{9}$/.test(phone)) { toast.error('Enter a valid 10-digit phone number.'); return; }
 
-    setCreating(true);
+    const commissionPercent = parseInt(await getSetting('platformCommissionRate', '15'));
+    const commissionRate    = commissionPercent / 100;
+
+    // Round to 2 decimals to avoid floating-point cents (e.g. 33.333333...)
+    const platformCommission = Math.round(amount * commissionRate * 100) / 100;
+    const workerEarning      = Math.round((amount - platformCommission) * 100) / 100;
+
+    const localPart = emailType === 'random'
+      ? generateRandomLocalPart()
+      : customLocalPart!.trim().toLowerCase();
+    const requestedEmail = `${localPart}@${domain}`;
+
+    const customer = await User.findById(customerId);
+    if (!customer) throwErr('Customer not found.', 404);
+
+    // Reuse saved phone, or save the newly provided one for next time.
+    let finalPhone = customer!.phone;
+    if (!finalPhone) {
+      if (!phone) {
+        throwErr('A phone number is required to process payment. Please provide one.', 400);
+      }
+      customer!.phone = phone;
+      await customer!.save();
+      finalPhone = phone;
+    }
+
+    // NEW: pay with wallet credit (from a previous refund) instead of
+    // Cashfree, if the customer opted in AND their balance fully covers
+    // this order's amount. Partial credit is intentionally NOT supported
+    // yet (V1) — the balance stays untouched and available for a future,
+    // smaller/equal order instead of splitting payment across two methods.
+    let paidWithWallet = false;
+    if (useWalletCredit) {
+      // Atomic check-and-debit — the `balance: { $gte: amount }` filter
+      // means this simply fails to match (returns null) if the balance is
+      // insufficient, same safety pattern as walletService.debit().
+      const debited = await Wallet.findOneAndUpdate(
+        { userId: customerId, balance: { $gte: amount } },
+        { $inc: { balance: -amount } },
+        { new: true }
+      );
+      paidWithWallet = !!debited;
+    }
+
+    const order = await Order.create({
+      customerId,
+      serviceName: serviceName.trim(),
+      amount,
+      workerEarning,
+      platformCommission,
+      commissionRate,
+      requestedEmail,
+      status: 'payment_pending',
+      paymentStatus: 'pending',
+    });
+
+    if (paidWithWallet) {
+      const orderRef = order._id.toString().slice(-6).toUpperCase();
+      await Transaction.create({
+        userId: customerId, orderId: order._id, type: 'debit', amount,
+        status: 'completed', description: `Wallet payment: Order #${orderRef}`,
+      });
+      // Reuses the exact same idempotent transition + marketplace
+      // broadcast + worker push-notification logic that a normal Cashfree
+      // webhook triggers — no duplicated logic, no separate code path that
+      // could drift out of sync with the "real" payment flow.
+      await paymentService.confirmPaymentSuccess(order._id.toString());
+      return { order, paymentSessionId: null, paidWithWallet: true };
+    }
+
     try {
-      const { data } = await api.post('/orders', {
-        serviceName: service,
-        domain,
-        emailType,
-        customLocalPart: emailType === 'custom' ? customLocal.trim() : undefined,
-        amount: numAmount,
-        ...(user?.phone ? {} : { phone }),
+      const { paymentSessionId, cashfreeOrderId } = await paymentService.createCashfreeOrder(
+        order._id.toString(),
+        amount,
+        customerId,
+        customer!.email,
+        finalPhone
+      );
+
+      order.cashfreeOrderId = cashfreeOrderId;
+      await order.save();
+
+      return { order, paymentSessionId, paidWithWallet: false };
+    } catch (err) {
+      // Cashfree order creation failed — don't leave our order stuck in
+      // limbo forever; mark it failed so the customer can simply try again.
+      order.status = 'payment_failed';
+      order.paymentStatus = 'failed';
+      await order.save();
+      throw err;
+    }
+  },
+
+  // ── Customer: cancel a pending (not yet accepted) order ───────────────────
+  // FIX: previously this only marked the order 'cancelled' with no way for
+  // the customer to ever get their money back — Cashfree payment had
+  // already succeeded by the time an order reaches 'pending', so real
+  // money was stuck. Now credits the amount straight to their wallet,
+  // usable immediately on their next order — no manual refund request needed.
+  async cancelOrder(orderId: string, customerId: string): Promise<IOrder> {
+    const order = await Order.findOneAndUpdate(
+      { _id: orderId, customerId, status: 'pending', workerId: null },
+      { status: 'cancelled' },
+      { new: true }
+    );
+    if (!order) {
+      throwErr('Only pending orders (not yet accepted by a worker) can be cancelled.', 400);
+    }
+
+    const orderRef = order!._id.toString().slice(-6).toUpperCase();
+    await walletService.creditRefund(
+      customerId, order!.amount, order!._id,
+      `Refund: Order #${orderRef} (cancelled before a worker accepted)`
+    );
+    await notificationService.create({
+      userId: customerId,
+      title: '💰 Refund Credited',
+      message: `Order #${orderRef} was cancelled and ₹${order!.amount} has been credited to your Mailzeon wallet — use it on your next order.`,
+      type: 'order',
+      orderId: order!._id,
+    });
+
+    return order!;
+  },
+
+  // ── Marketplace: orders available for workers ─────────────────────────────
+  // FIX: also hides the customer's full `amount`/commission breakdown here —
+  // this is the list workers browse BEFORE accepting, so the leak applied
+  // even earlier than getOrder()/getWorkerOrders() below.
+  async getMarketplaceOrders(): Promise<IOrder[]> {
+    const orders = await Order.find({ status: 'pending', workerId: null })
+      .sort({ createdAt: -1 })
+      .select('-credentials -amount -platformCommission -commissionRate')
+      .lean();
+    return orders as unknown as IOrder[];
+  },
+
+  // ── Worker: atomically accept an order ───────────────────────────────────
+  async acceptOrder(orderId: string, workerId: string, workerName: string): Promise<IOrder> {
+    const timerMinutes = parseInt(await getSetting('orderTimerMinutes', '10'));
+    const now          = new Date();
+    const timerExpires = new Date(now.getTime() + timerMinutes * 60 * 1000);
+
+    const order = await Order.findOneAndUpdate(
+      { _id: orderId, status: 'pending', workerId: null },
+      { status: 'accepted', workerId, acceptedAt: now, timerExpiresAt: timerExpires },
+      { new: true }
+    );
+
+    if (!order) throwErr('This order is no longer available.', 409);
+
+    const customerId = order!.customerId.toString();
+    startOrderTimer(orderId, workerId, customerId, timerMinutes);
+
+    await notificationService.create({
+      userId:  customerId,
+      title:   '🎉 Worker Assigned!',
+      message: `A worker has accepted your order and will submit credentials within ${timerMinutes} minutes.`,
+      type:    'order',
+      orderId: order!._id,
+    });
+
+    emitToUser(customerId, EVENTS.ORDER_ACCEPTED, { orderId, workerName });
+    return order!;
+  },
+
+  // ── Worker: submit credentials ────────────────────────────────────────────
+  async submitCredentials(
+    orderId: string,
+    workerId: string,
+    credentials: { email: string; password: string; notes?: string }
+  ): Promise<IOrder> {
+    const order = await Order.findOne({ _id: orderId, workerId, status: 'accepted' });
+    if (!order) throwErr('Order not found or not in accepted state.', 404);
+
+    if (order.requestedEmail && credentials.email.trim().toLowerCase() !== order.requestedEmail.toLowerCase()) {
+      throwErr(`Submitted email must exactly match the requested email: ${order.requestedEmail}`, 400);
+    }
+
+    clearOrderTimer(orderId);
+
+    const autoHours = parseInt(await getSetting('autoCompleteHours', '24'));
+    const now       = new Date();
+    const autoAt    = new Date(now.getTime() + autoHours * 60 * 60 * 1000);
+
+    order!.status                 = 'credentials_submitted';
+    order!.credentials            = credentials;
+    order!.credentialsSubmittedAt = now;
+    order!.autoCompleteAt         = autoAt;
+    await order!.save();
+
+    await walletService.moveToPending(
+      workerId,
+      order!.workerEarning,
+      order!._id,
+      `Pending: Order #${order!._id.toString().slice(-6).toUpperCase()}`
+    );
+
+    const customerId = order!.customerId.toString();
+    await notificationService.create({
+      userId:  customerId,
+      title:   '✅ Credentials Ready!',
+      message: 'The worker has submitted your account details. Open your order to view the password.',
+      type:    'order',
+      orderId: order!._id,
+    });
+
+    emitToUser(customerId, EVENTS.CREDENTIALS_READY, { orderId });
+    return order!;
+  },
+
+  // ── Customer: request verification code ──────────────────────────────────
+  async requestVerificationCode(orderId: string, customerId: string): Promise<IOrder> {
+    const order = await Order.findOne({
+      _id: orderId, customerId, status: 'credentials_submitted',
+    });
+    if (!order) throwErr('Order must be in "credentials_submitted" state to request a code.', 400);
+
+    order!.status = 'verification_pending';
+    await order!.save();
+
+    const workerId = order!.workerId!.toString();
+    await notificationService.create({
+      userId:  workerId,
+      title:   '⚡ Verification Code Requested',
+      message: 'The customer needs a verification code. Please enter it now.',
+      type:    'verification',
+      orderId: order!._id,
+    });
+
+    emitToUser(workerId, EVENTS.CODE_REQUESTED, { orderId });
+    return order!;
+  },
+
+  // ── Worker: submit verification code ─────────────────────────────────────
+  async submitVerificationCode(orderId: string, workerId: string, code: string): Promise<IOrder> {
+    const order = await Order.findOne({ _id: orderId, workerId, status: 'verification_pending' });
+    if (!order) throwErr('Order not found or not in verification state.', 400);
+
+    order!.verificationCode = code.trim();
+    await order!.save();
+
+    const customerId = order!.customerId.toString();
+    await notificationService.create({
+      userId:  customerId,
+      title:   '✅ Verification Code Received',
+      message: 'The worker has sent your verification code. Open your order to view it.',
+      type:    'verification',
+      orderId: order!._id,
+    });
+
+    emitToUser(customerId, EVENTS.CODE_RECEIVED, { orderId, code: code.trim() });
+    return order!;
+  },
+
+  // ── Customer: request a NEW code ─────────────────────────────────────────
+  async requestNewCode(orderId: string, customerId: string): Promise<IOrder> {
+    const order = await Order.findOne({
+      _id: orderId,
+      customerId,
+      status: 'verification_pending',
+      workerId: { $ne: null },
+    });
+    if (!order) throwErr('Order not in verification state.', 400);
+
+    await Order.findByIdAndUpdate(orderId, { $unset: { verificationCode: 1 } });
+    order.verificationCode = undefined;
+
+    const workerId = order.workerId!.toString();
+    await notificationService.create({
+      userId:  workerId,
+      title:   '⚡ New Code Requested',
+      message: 'The previous code expired. Please provide a new verification code.',
+      type:    'verification',
+      orderId: order._id,
+    });
+
+    emitToUser(workerId, EVENTS.NEW_CODE_REQUESTED, { orderId });
+    return order;
+  },
+
+  // ── Customer: confirm successful login ────────────────────────────────────
+  async confirmSuccess(orderId: string, customerId: string): Promise<IOrder> {
+    const order = await Order.findOne({
+      _id: orderId,
+      customerId,
+      status: { $in: ['credentials_submitted', 'verification_pending', 'success_confirmed'] },
+    });
+    if (!order || !order.workerId) throwErr('Order not found or not eligible for confirmation.', 404);
+
+    order.status      = 'completed';
+    order.completedAt = new Date();
+    await order.save();
+
+    const workerId = order.workerId!.toString();
+
+    await walletService.releaseFromPending(
+      workerId,
+      order.workerEarning,
+      order._id,
+      `Earned: Order #${order._id.toString().slice(-6).toUpperCase()}`
+    );
+
+    await Promise.all([
+      notificationService.create({
+        userId:  workerId,
+        title:   `₹${order.workerEarning} Credited!`,
+        message: `Your earnings for Order #${order._id.toString().slice(-6).toUpperCase()} have been released to your wallet.`,
+        type:    'order',
+        orderId: order._id,
+      }),
+      notificationService.create({
+        userId:  customerId,
+        title:   '🎉 Order Completed!',
+        message: 'Your order has been completed successfully. Thank you!',
+        type:    'order',
+        orderId: order._id,
+      }),
+    ]);
+
+    emitToUser(workerId,   EVENTS.ORDER_COMPLETED, { orderId });
+    emitToUser(customerId, EVENTS.ORDER_COMPLETED, { orderId });
+
+    workerLevelService.recalculate(workerId).catch(err =>
+      console.error('[WorkerLevel] Recalculate error after confirmSuccess:', err)
+    );
+
+    return order;
+  },
+
+  // ── Customer: report problem ──────────────────────────────────────────────
+  async reportProblem(
+    orderId: string,
+    customerId: string,
+    reason: string = 'other',
+    description?: string
+  ): Promise<IOrder> {
+    const order = await Order.findOne({
+      _id: orderId,
+      customerId,
+      status: { $in: ['credentials_submitted', 'verification_pending'] },
+    });
+    if (!order) throwErr('This order cannot be disputed in its current state.', 400);
+    if (!order.workerId) throwErr('No worker assigned to this order.', 400);
+
+    order.status = 'under_review';
+    await order.save();
+
+    const existing = await Dispute.findOne({ orderId: order._id });
+    if (!existing) {
+      await Dispute.create({
+        orderId:    order._id,
+        customerId: order.customerId,
+        workerId:   order.workerId,
+        reason,
+        description,
       });
 
-      if (data.success) {
-        if (!user?.phone && phone) updateUser({ phone });
-        toast.success('Redirecting to payment…');
-        await openCashfreeCheckout(data.data.paymentSessionId);
+      const admins = await User.find({ role: 'admin' }).select('_id');
+      if (admins.length > 0) {
+        await Notification.insertMany(admins.map(a => ({
+          userId:    a._id,
+          title:     '🚨 New Dispute',
+          message:   `Customer raised a dispute for Order #${order._id.toString().slice(-6).toUpperCase()}.`,
+          type:      'dispute',
+          orderId:   order._id,
+          isRead:    false,
+          createdAt: new Date(),
+        })));
       }
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to create order.');
-      setCreating(false);
     }
-  };
 
-  const previewEmail = domain && emailType === 'custom' && customLocal.trim()
-    ? `${customLocal.trim().toLowerCase()}@${domain}`
-    : null;
+    return order;
+  },
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">My Orders</h1>
-          <p className="text-gray-400 text-sm mt-0.5">{orders.length} order{orders.length !== 1 ? 's' : ''} total</p>
-        </div>
-        <Button onClick={() => setShowModal(true)}>
-          <Plus className="w-4 h-4 mr-2" /> New Order
-        </Button>
-      </div>
+  // ── Get single order (role-filtered) ─────────────────────────────────────
+  async getOrder(orderId: string, userId: string, role: string): Promise<IOrder> {
+    const order = await Order.findById(orderId);
+    if (!order) throwErr('Order not found.', 404);
 
-      <div className="glass-card overflow-hidden">
-        {loading ? (
-          <div className="p-4 space-y-3">{Array(4).fill(0).map((_,i) => <Skeleton key={i} className="h-16" />)}</div>
-        ) : orders.length === 0 ? (
-          <div className="text-center py-16 text-gray-500">
-            <ShoppingBag className="w-12 h-12 mx-auto mb-3 opacity-20" />
-            <p className="font-medium text-gray-400">No orders yet</p>
-            <p className="text-sm mt-1">Place your first order to get started</p>
-          </div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-white/[0.06]">
-                {['Order ID','Service','Amount','Status','Date',''].map(h => (
-                  <th key={h} className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-4 py-3">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/[0.05]">
-              {orders.map(o => (
-                <tr key={o._id} className="hover:bg-white/[0.05] transition-colors">
-                  <td className="px-4 py-3 font-mono text-gray-400 text-xs">{shortId(o._id)}</td>
-                  <td className="px-4 py-3 text-white font-medium max-w-[180px] truncate">{o.serviceName}</td>
-                  <td className="px-4 py-3 text-gray-300">{o.amount !== undefined ? formatCurrency(o.amount) : '—'}</td>
-                  <td className="px-4 py-3"><OrderStatusBadge status={o.status} /></td>
-                  <td className="px-4 py-3 text-gray-500">{timeAgo(o.createdAt)}</td>
-                  <td className="px-4 py-3">
-                    <Link href={`/customer/orders/${o._id}`}
-                      className="text-xs text-purple-400 hover:text-purple-300">View →</Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+    const isCustomer = role === 'customer' && order!.customerId.toString() === userId;
+    const isWorker   = role === 'worker'   && order!.workerId?.toString()  === userId;
+    const isAdmin    = role === 'admin';
 
-      <Dialog open={showModal} onOpenChange={(v) => { setShowModal(v); if (!v) resetModal(); }}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Place New Order</DialogTitle></DialogHeader>
-          <form onSubmit={createOrder} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>Service description</Label>
-              <Input placeholder="e.g. Instagram login verification" value={service}
-                onChange={e => setService(e.target.value)} autoFocus />
-            </div>
+    if (!isCustomer && !isWorker && !isAdmin) throwErr('Access denied.', 403);
 
-            <div className="space-y-1.5">
-              <Label className="flex items-center gap-1.5">
-                <IndianRupee className="w-3.5 h-3.5" /> Order amount
-              </Label>
-              <Input
-                type="number"
-                min={minimumOrderAmount}
-                placeholder={`Minimum ₹${minimumOrderAmount}`}
-                value={amount}
-                onChange={e => setAmount(e.target.value)}
-              />
-              <p className="text-xs text-gray-500">
-                {100 - platformCommissionRate}% goes to the worker who completes your order, {platformCommissionRate}% is the platform fee.
-              </p>
-            </div>
+    if (role === 'customer') {
+      const safe = order!.toObject();
 
-            <div className="space-y-1.5">
-              <Label>Email domain</Label>
-              <div className="grid grid-cols-3 gap-2">
-                {EMAIL_DOMAINS.map(d => (
-                  <button
-                    key={d}
-                    type="button"
-                    onClick={() => setDomain(d)}
-                    className={cn(
-                      'relative flex items-center justify-center gap-1 px-2 py-2 rounded-lg border text-xs font-medium transition-all truncate',
-                      domain === d
-                        ? 'border-purple-500 bg-purple-600/10 text-white'
-                        : 'border-white/[0.06] text-gray-400 hover:border-white/[0.15] hover:text-gray-200'
-                    )}
-                  >
-                    {domain === d && <Check className="w-3 h-3 text-purple-400 shrink-0" />}
-                    <span className="truncate">@{d}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
+      let refundEligible = false;
+      let refundStatus: string | null = null;
+      let walletCredited = false;
 
-            <div className="space-y-1.5">
-              <Label>Email type</Label>
-              <div className="flex gap-3">
-                <button type="button" onClick={() => setEmailType('random')}
-                  className={cn(
-                    'flex-1 flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all',
-                    emailType === 'random' ? 'border-purple-500 bg-purple-600/10 text-white' : 'border-white/[0.06] text-gray-400 hover:border-white/[0.15]'
-                  )}>
-                  <Shuffle className={cn('w-5 h-5', emailType === 'random' ? 'text-purple-400' : 'text-gray-500')} />
-                  <span className="font-medium text-sm">Random</span>
-                  <span className="text-xs text-gray-500 text-center">Auto-generated</span>
-                </button>
-                <button type="button" onClick={() => setEmailType('custom')}
-                  className={cn(
-                    'flex-1 flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all',
-                    emailType === 'custom' ? 'border-purple-500 bg-purple-600/10 text-white' : 'border-white/[0.06] text-gray-400 hover:border-white/[0.15]'
-                  )}>
-                  <Edit3 className={cn('w-5 h-5', emailType === 'custom' ? 'text-purple-400' : 'text-gray-500')} />
-                  <span className="font-medium text-sm">Custom</span>
-                  <span className="text-xs text-gray-500 text-center">You choose the name</span>
-                </button>
-              </div>
-            </div>
+      if (safe.status === 'cancelled') {
+        // NEW system (from this update onward): cancelOrder()/dispute
+        // resolution/auto-cancel now credit the wallet instantly and log a
+        // Transaction (type: 'credit') tagged to the order. Its presence
+        // is exactly how we tell "this was auto-credited under the new
+        // system" apart from "this is an old cancellation from before the
+        // update" — old ones were refunded manually as real money outside
+        // this flow and must NEVER retroactively show wallet-credit
+        // messaging or get double-credited.
+        const creditTxn = await Transaction.findOne({
+          orderId: order!._id, userId: order!.customerId, type: 'credit',
+        });
 
-            {emailType === 'custom' && (
-              <div className="space-y-1.5">
-                <Label>Custom email name</Label>
-                <div className="flex items-center gap-2">
-                  <Input placeholder="yourtext" value={customLocal} onChange={e => setCustomLocal(e.target.value)} className="flex-1" />
-                  <span className="text-gray-500 text-sm whitespace-nowrap">@{domain || '...'}</span>
-                </div>
-              </div>
-            )}
+        if (creditTxn) {
+          walletCredited = true;
+        } else {
+          // OLD system fallback — preserved exactly as-is for any order
+          // cancelled before this update, so existing refund-request
+          // history/state keeps working unchanged.
+          if (!safe.workerId) {
+            const existingRefund = await RefundRequest.findOne({ orderId: order!._id });
+            refundStatus   = existingRefund ? existingRefund.status : null;
+            refundEligible = !existingRefund;
+          } else {
+            const dispute = await Dispute.findOne({ orderId: order!._id, status: 'resolved' });
+            if (dispute) {
+              const existingRefund = await RefundRequest.findOne({ orderId: order!._id });
+              refundStatus   = existingRefund ? existingRefund.status : null;
+              refundEligible = !existingRefund;
+            }
+          }
+        }
+      }
 
-            {previewEmail && (
-              <div className="p-3 rounded-xl bg-white/[0.05] text-sm">
-                <span className="text-gray-500">Email to be created: </span>
-                <span className="text-white font-mono break-all">{previewEmail}</span>
-              </div>
-            )}
-            {emailType === 'random' && domain && (
-              <p className="text-xs text-gray-500">A random email address will be generated automatically on @{domain}.</p>
-            )}
+      return { ...safe, refundEligible, refundStatus, walletCredited } as unknown as IOrder;
+    }
 
-            {!user?.phone && (
-              <div className="space-y-1.5">
-                <Label className="flex items-center gap-1.5">
-                  <Phone className="w-3.5 h-3.5" /> Phone number
-                </Label>
-                <Input
-                  type="tel"
-                  placeholder="9876543210"
-                  value={phone}
-                  onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                  maxLength={10}
-                />
-                <p className="text-xs text-gray-500">Required by our payment partner. Saved to your profile for next time.</p>
-              </div>
-            )}
+    // WORKER-FACING: strip the customer's full paid amount and commission
+    // breakdown — a worker must only ever see `workerEarning` (their 85%
+    // share), never the customer's full payment or platform's cut.
+    if (role === 'worker') {
+      const safe = order!.toObject();
+      delete (safe as any).amount;
+      delete (safe as any).platformCommission;
+      delete (safe as any).commissionRate;
+      return safe as unknown as IOrder;
+    }
 
-            <div className="flex gap-3 justify-end pt-1">
-              <Button type="button" variant="outline" onClick={() => setShowModal(false)}>Cancel</Button>
-              <Button type="submit" loading={creating}>
-                {amount ? `Pay ${formatCurrency(Number(amount) || 0)} & Place Order` : 'Continue to Payment'}
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
+    return order!;
+  },
+
+  async getCustomerOrders(customerId: string): Promise<IOrder[]> {
+    return Order.find({ customerId })
+      .sort({ createdAt: -1 })
+      .select('-credentials')
+      .lean() as Promise<IOrder[]>;
+  },
+
+  // WORKER-FACING list — same amount-hiding rule as getOrder() above.
+  async getWorkerOrders(workerId: string): Promise<IOrder[]> {
+    const orders = await Order.find({ workerId })
+      .sort({ createdAt: -1 })
+      .select('-amount -platformCommission -commissionRate')
+      .lean();
+    return orders as unknown as IOrder[];
+  },
+};

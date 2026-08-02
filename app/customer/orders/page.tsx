@@ -53,7 +53,9 @@ export default function CustomerOrdersPage() {
 
   useEffect(() => { fetchOrders(); fetchSettings(); fetchWallet(); }, []);
 
-  const canUseWalletCredit = walletBalance > 0 && Number(amount) > 0 && walletBalance >= Number(amount);
+  const canUseWalletCredit = walletBalance > 0 && Number(amount) > 0;
+  const walletAmountToApply = canUseWalletCredit ? Math.min(walletBalance, Number(amount) || 0) : 0;
+  const remainingToPay = Math.max(0, (Number(amount) || 0) - (useWalletCredit ? walletAmountToApply : 0));
 
   const resetModal = () => {
     setService(''); setDomain(''); setEmailType('random'); setCustomLocal('');
@@ -87,7 +89,7 @@ export default function CustomerOrdersPage() {
       if (data.success) {
         if (!user?.phone && phone) updateUser({ phone });
         if (data.data.paidWithWallet) {
-          // Paid entirely with wallet credit — no Cashfree redirect needed,
+          // Fully covered by wallet credit — no Cashfree redirect needed,
           // the order is already live in the marketplace.
           toast.success('Paid with wallet credit! Your order is live in the marketplace.');
           setShowModal(false);
@@ -96,7 +98,12 @@ export default function CustomerOrdersPage() {
           fetchOrders();
           fetchWallet();
         } else {
-          toast.success('Redirecting to payment…');
+          if (data.data.walletAmountApplied > 0) {
+            toast.info(`${formatCurrency(data.data.walletAmountApplied)} wallet credit applied — complete the rest to publish your order.`);
+            fetchWallet();
+          } else {
+            toast.success('Redirecting to payment…');
+          }
           await openCashfreeCheckout(data.data.paymentSessionId);
         }
       }
@@ -188,28 +195,27 @@ export default function CustomerOrdersPage() {
             {walletBalance > 0 && (
               <div className={cn(
                 'p-3 rounded-xl border flex items-center justify-between gap-3',
-                canUseWalletCredit ? 'border-green-500/30 bg-green-500/5' : 'border-white/[0.06] bg-white/[0.02]'
+                'border-green-500/30 bg-green-500/5'
               )}>
                 <div>
                   <p className="text-sm text-white font-medium">Wallet credit: {formatCurrency(walletBalance)}</p>
                   <p className="text-xs text-gray-500">
-                    {canUseWalletCredit
+                    {walletAmountToApply >= (Number(amount) || 0) && Number(amount) > 0
                       ? 'Covers this order fully — no payment needed!'
-                      : 'Not enough to cover this order — pay normally and save it for next time.'}
+                      : `Apply ${formatCurrency(walletAmountToApply)} — pay ${formatCurrency(remainingToPay)} via Cashfree for the rest.`}
                   </p>
                 </div>
                 <button
                   type="button"
-                  disabled={!canUseWalletCredit}
                   onClick={() => setUseWalletCredit(v => !v)}
                   className={cn(
-                    'shrink-0 w-11 h-6 rounded-full transition-colors relative disabled:opacity-40',
-                    useWalletCredit && canUseWalletCredit ? 'bg-green-500' : 'bg-white/[0.12]'
+                    'shrink-0 w-11 h-6 rounded-full transition-colors relative',
+                    useWalletCredit ? 'bg-green-500' : 'bg-white/[0.12]'
                   )}
                 >
                   <span className={cn(
                     'absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform',
-                    useWalletCredit && canUseWalletCredit ? 'translate-x-[22px]' : 'translate-x-0.5'
+                    useWalletCredit ? 'translate-x-[22px]' : 'translate-x-0.5'
                   )} />
                 </button>
               </div>
@@ -300,8 +306,10 @@ export default function CustomerOrdersPage() {
             <div className="flex gap-3 justify-end pt-1">
               <Button type="button" variant="outline" onClick={() => setShowModal(false)}>Cancel</Button>
               <Button type="submit" loading={creating}>
-                {canUseWalletCredit && useWalletCredit
-                  ? 'Pay with Wallet Credit & Place Order'
+                {useWalletCredit && canUseWalletCredit
+                  ? remainingToPay === 0
+                    ? 'Pay with Wallet Credit & Place Order'
+                    : `Pay ${formatCurrency(remainingToPay)} (Wallet Credit Applied) & Place Order`
                   : amount ? `Pay ${formatCurrency(Number(amount) || 0)} & Place Order` : 'Continue to Payment'}
               </Button>
             </div>

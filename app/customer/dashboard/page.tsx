@@ -34,6 +34,17 @@ export default function CustomerDashboard() {
   const [amount, setAmount]       = useState('');
   // NEW: only asked for if not already saved on the customer's profile
   const [phone, setPhone]         = useState('');
+  // NEW: wallet credit (from a previous refund) that can be used to skip
+  // Cashfree entirely if it fully covers the order amount.
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [useWalletCredit, setUseWalletCredit] = useState(false);
+
+  const fetchWallet = async () => {
+    try {
+      const { data } = await api.get('/wallet');
+      if (data.success) setWalletBalance(data.data.balance);
+    } catch { /* Non-critical — the order form still works without this */ }
+  };
 
   const fetch = async () => {
     try {
@@ -43,7 +54,9 @@ export default function CustomerDashboard() {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { fetch(); fetchSettings(); }, []);
+  useEffect(() => { fetch(); fetchSettings(); fetchWallet(); }, []);
+
+  const canUseWalletCredit = walletBalance > 0 && Number(amount) > 0 && walletBalance >= Number(amount);
 
   const stats = {
     total:     orders.length,
@@ -54,7 +67,7 @@ export default function CustomerDashboard() {
 
   const resetModal = () => {
     setService(''); setDomain(''); setEmailType('random'); setCustomLocal('');
-    setAmount(''); setPhone('');
+    setAmount(''); setPhone(''); setUseWalletCredit(false);
   };
 
   const createOrder = async (e: React.FormEvent) => {
@@ -78,17 +91,29 @@ export default function CustomerDashboard() {
         customLocalPart: emailType === 'custom' ? customLocal.trim() : undefined,
         amount: numAmount,
         ...(user?.phone ? {} : { phone }),
+        ...(canUseWalletCredit && useWalletCredit ? { useWalletCredit: true } : {}),
       });
 
       if (data.success) {
         if (!user?.phone && phone) updateUser({ phone });
-        toast.success('Redirecting to payment…');
-        // Order is created but NOT yet in the marketplace — it only becomes
-        // visible to workers once Cashfree confirms the payment succeeded.
-        await openCashfreeCheckout(data.data.paymentSessionId);
-        // openCashfreeCheckout navigates the browser away to Cashfree's
-        // hosted page — code after this line does not run until the
-        // customer is redirected back (handled on the order detail page).
+        if (data.data.paidWithWallet) {
+          // Paid entirely with wallet credit — no Cashfree redirect needed,
+          // the order is already live in the marketplace.
+          toast.success('Paid with wallet credit! Your order is live in the marketplace.');
+          setShowModal(false);
+          resetModal();
+          setCreating(false);
+          fetch();
+          fetchWallet();
+        } else {
+          toast.success('Redirecting to payment…');
+          // Order is created but NOT yet in the marketplace — it only becomes
+          // visible to workers once Cashfree confirms the payment succeeded.
+          await openCashfreeCheckout(data.data.paymentSessionId);
+          // openCashfreeCheckout navigates the browser away to Cashfree's
+          // hosted page — code after this line does not run until the
+          // customer is redirected back (handled on the order detail page).
+        }
       }
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to create order.');
@@ -184,6 +209,36 @@ export default function CustomerDashboard() {
               </p>
             </div>
 
+            {walletBalance > 0 && (
+              <div className={cn(
+                'p-3 rounded-xl border flex items-center justify-between gap-3',
+                canUseWalletCredit ? 'border-green-500/30 bg-green-500/5' : 'border-white/[0.06] bg-white/[0.02]'
+              )}>
+                <div>
+                  <p className="text-sm text-white font-medium">Wallet credit: {formatCurrency(walletBalance)}</p>
+                  <p className="text-xs text-gray-500">
+                    {canUseWalletCredit
+                      ? 'Covers this order fully — no payment needed!'
+                      : 'Not enough to cover this order — pay normally and save it for next time.'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={!canUseWalletCredit}
+                  onClick={() => setUseWalletCredit(v => !v)}
+                  className={cn(
+                    'shrink-0 w-11 h-6 rounded-full transition-colors relative disabled:opacity-40',
+                    useWalletCredit && canUseWalletCredit ? 'bg-green-500' : 'bg-white/[0.12]'
+                  )}
+                >
+                  <span className={cn(
+                    'absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform',
+                    useWalletCredit && canUseWalletCredit ? 'translate-x-[22px]' : 'translate-x-0.5'
+                  )} />
+                </button>
+              </div>
+            )}
+
             <div className="space-y-1.5">
               <Label>Email domain</Label>
               <div className="grid grid-cols-3 gap-2">
@@ -270,7 +325,9 @@ export default function CustomerDashboard() {
             <div className="flex gap-3 justify-end pt-1">
               <Button type="button" variant="outline" onClick={() => setShowModal(false)}>Cancel</Button>
               <Button type="submit" loading={creating}>
-                {amount ? `Pay ${formatCurrency(Number(amount) || 0)} & Place Order` : 'Continue to Payment'}
+                {canUseWalletCredit && useWalletCredit
+                  ? 'Pay with Wallet Credit & Place Order'
+                  : amount ? `Pay ${formatCurrency(Number(amount) || 0)} & Place Order` : 'Continue to Payment'}
               </Button>
             </div>
           </form>

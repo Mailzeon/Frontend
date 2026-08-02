@@ -486,32 +486,45 @@ export default function CustomerOrderDetail() {
         <div className="glass-card p-6 text-center space-y-4">
           <XCircle className="w-10 h-10 text-gray-500 mx-auto" />
           <p className="font-semibold text-white">Order Cancelled</p>
-          <p className="text-sm text-gray-400">
-            This order was cancelled following a dispute resolved in your favor.
-          </p>
 
-          {order.refundEligible && (
-            <Button onClick={() => setShowRefund(true)}>
-              <IndianRupee className="w-4 h-4 mr-2" /> Request Refund{order.amount !== undefined ? ` — ${formatCurrency(order.amount)}` : ''}
-            </Button>
-          )}
+          {order.walletCredited ? (
+            <>
+              <p className="text-sm text-gray-400">This order was cancelled and refunded.</p>
+              <div className="p-3 rounded-xl bg-green-500/5 border border-green-500/20 text-sm text-green-400">
+                💰 {order.amount !== undefined ? formatCurrency(order.amount) : 'The amount'} was credited to your
+                Mailzeon wallet — check your <Link href="/customer/wallet" className="underline font-medium">Wallet</Link> to use it on your next order.
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-gray-400">
+                This order was cancelled following a dispute resolved in your favor.
+              </p>
 
-          {order.refundStatus === 'pending' && (
-            <div className="p-3 rounded-xl bg-yellow-500/5 border border-yellow-500/20 text-sm text-yellow-400">
-              ⏳ Refund request submitted. Your refund is being processed — this typically takes 24–48 hours.
-            </div>
-          )}
+              {order.refundEligible && (
+                <Button onClick={() => setShowRefund(true)}>
+                  <IndianRupee className="w-4 h-4 mr-2" /> Request Refund{order.amount !== undefined ? ` — ${formatCurrency(order.amount)}` : ''}
+                </Button>
+              )}
 
-          {order.refundStatus === 'completed' && (
-            <div className="p-3 rounded-xl bg-green-500/5 border border-green-500/20 text-sm text-green-400">
-              ✅ Refunded successfully! The amount has been sent to your UPI ID.
-            </div>
-          )}
+              {order.refundStatus === 'pending' && (
+                <div className="p-3 rounded-xl bg-yellow-500/5 border border-yellow-500/20 text-sm text-yellow-400">
+                  ⏳ Refund request submitted. Your refund is being processed — this typically takes 24–48 hours.
+                </div>
+              )}
 
-          {order.refundStatus === 'rejected' && (
-            <div className="p-3 rounded-xl bg-red-500/5 border border-red-500/20 text-sm text-red-400">
-              ❌ Your refund request was rejected. Contact support if you believe this is incorrect.
-            </div>
+              {order.refundStatus === 'completed' && (
+                <div className="p-3 rounded-xl bg-green-500/5 border border-green-500/20 text-sm text-green-400">
+                  ✅ Refunded successfully! The amount has been sent to your UPI ID.
+                </div>
+              )}
+
+              {order.refundStatus === 'rejected' && (
+                <div className="p-3 rounded-xl bg-red-500/5 border border-red-500/20 text-sm text-red-400">
+                  ❌ Your refund request was rejected. Contact support if you believe this is incorrect.
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

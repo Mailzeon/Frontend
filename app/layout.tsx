@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono } from 'next/font/google';
 import { Toaster } from '@/components/ui/toast';
 import { InstallPrompt } from '@/components/shared/InstallPrompt';
 import { ServiceWorkerRegister } from '@/components/shared/ServiceWorkerRegister';
+import { AppInstallDetector } from '@/components/shared/AppInstallDetector';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
@@ -41,6 +42,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans bg-[#08080D] text-gray-100 antialiased`}>
         {children}
         <ServiceWorkerRegister />
+        <AppInstallDetector />
         <InstallPrompt />
         <Toaster />
       </body>

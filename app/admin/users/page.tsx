@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Users, CheckCircle, XCircle, Search, Eye } from 'lucide-react';
+import { Users, CheckCircle, XCircle, Search, Eye, Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -82,10 +82,10 @@ export default function AdminUsersPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[720px]">
+          <table className="w-full text-sm min-w-[800px]">
             <thead>
               <tr className="border-b border-white/[0.06]">
-                {['Name','Email', tab === 'worker' ? 'Level' : 'Joined', 'Status', 'Actions'].map(h => (
+                {['Name','Email', tab === 'worker' ? 'Level' : 'Joined', 'Status', 'App', 'Actions'].map(h => (
                   <th key={h} className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-4 py-3">{h}</th>
                 ))}
               </tr>
@@ -118,6 +118,15 @@ export default function AdminUsersPage() {
                       </div>
                     ) : (
                       <span className="text-green-400 text-xs">Active</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {u.hasInstalledApp ? (
+                      <span className="inline-flex items-center gap-1 text-green-400 text-xs" title={u.lastSeenAsInstalledApp ? `Last seen: ${formatDate(u.lastSeenAsInstalledApp)}` : undefined}>
+                        <Smartphone className="w-3.5 h-3.5" /> Installed
+                      </span>
+                    ) : (
+                      <span className="text-gray-500 text-xs">—</span>
                     )}
                   </td>
                   {tab === 'worker' && (

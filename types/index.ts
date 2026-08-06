@@ -36,6 +36,9 @@ export interface Order {
     notes?:   string;
   };
   verificationCode?:       string;
+  // NEW: true once the worker has selected the matching number on their
+  // own device and confirmed it in the app.
+  verificationConfirmed?:  boolean;
   acceptedAt?:             string;
   timerExpiresAt?:         string;
   credentialsSubmittedAt?: string;

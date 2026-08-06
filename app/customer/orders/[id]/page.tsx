@@ -59,6 +59,8 @@ export default function CustomerOrderDetail() {
   const [showRefund, setShowRefund] = useState(false);
   const [refundUpi, setRefundUpi]   = useState('');
   const [submittingRefund, setSubmittingRefund] = useState(false);
+  const [numberInput, setNumberInput] = useState('');
+  const [sendingNumber, setSendingNumber] = useState(false);
 
   // NEW: true while we're double-checking payment status right after the
   // customer is redirected back from Cashfree's checkout page.
@@ -109,14 +111,14 @@ export default function CustomerOrderDetail() {
     const refresh = () => fetchOrder();
     socket.on(SOCKET_EVENTS.ORDER_ACCEPTED,    refresh);
     socket.on(SOCKET_EVENTS.CREDENTIALS_READY, refresh);
-    socket.on(SOCKET_EVENTS.CODE_RECEIVED,     refresh);
+    socket.on(SOCKET_EVENTS.NUMBER_CONFIRMED,  refresh);
     socket.on(SOCKET_EVENTS.ORDER_COMPLETED,   refresh);
     socket.on(SOCKET_EVENTS.ORDER_CANCELLED,   refresh);
 
     return () => {
       socket.off(SOCKET_EVENTS.ORDER_ACCEPTED,    refresh);
       socket.off(SOCKET_EVENTS.CREDENTIALS_READY, refresh);
-      socket.off(SOCKET_EVENTS.CODE_RECEIVED,     refresh);
+      socket.off(SOCKET_EVENTS.NUMBER_CONFIRMED,  refresh);
       socket.off(SOCKET_EVENTS.ORDER_COMPLETED,   refresh);
       socket.off(SOCKET_EVENTS.ORDER_CANCELLED,   refresh);
     };
@@ -132,6 +134,21 @@ export default function CustomerOrderDetail() {
       toast.error(msg || 'Action failed.');
     } finally {
       setActing(false);
+    }
+  };
+
+  const submitNumber = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!numberInput.trim()) return;
+    setSendingNumber(true);
+    try {
+      const { data } = await api.patch(`/orders/${id}/submit-number`, { number: numberInput.trim() });
+      if (data.success) { toast.success('Number sent to worker!'); setNumberInput(''); fetchOrder(); }
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      toast.error(msg || 'Failed to send number.');
+    } finally {
+      setSendingNumber(false);
     }
   };
 
@@ -395,22 +412,44 @@ export default function CustomerOrderDetail() {
             Were you able to log in with the details above?
           </p>
 
-          {isVerif && order.verificationCode && (
-            <div className="p-4 rounded-xl bg-green-500/5 border border-green-500/20 text-center">
-              <p className="text-xs text-gray-500 mb-1">Verification Code</p>
-              <p className="text-3xl font-bold text-green-400 tracking-widest font-mono">
+          {isVerif && !order.verificationConfirmed && (
+            <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/20 text-center space-y-1">
+              <p className="text-xs text-gray-500">Number sent to worker</p>
+              <p className="text-3xl font-bold text-blue-400 tracking-widest font-mono">
                 {order.verificationCode}
+              </p>
+              <p className="text-xs text-blue-400 animate-pulse-soft">
+                Waiting for worker to confirm on their device…
               </p>
             </div>
           )}
 
-          {isVerif && !order.verificationCode && (
-            <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/20 text-center">
-              <p className="text-sm text-blue-400 animate-pulse-soft">
-                Waiting for worker to send code…
-              </p>
+          {isVerif && order.verificationConfirmed && (
+            <div className="p-4 rounded-xl bg-green-500/5 border border-green-500/20 text-center">
+              <p className="text-sm text-green-400 font-medium">✓ Worker confirmed — try logging in now</p>
             </div>
           )}
+
+          <form onSubmit={submitNumber} className="space-y-2">
+            <Label>
+              {isCreds
+                ? "Google asking you to select a number on this screen? Type it here:"
+                : "Number expired, or a new one appeared? Send the new one:"}
+            </Label>
+            <div className="flex gap-2">
+              <Input
+                placeholder="e.g. 42"
+                value={numberInput}
+                onChange={e => setNumberInput(e.target.value.replace(/\D/g, ''))}
+                className="text-center text-lg tracking-widest font-mono"
+                maxLength={5}
+              />
+              <Button type="submit" loading={sendingNumber} disabled={!numberInput.trim()}>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Send
+              </Button>
+            </div>
+          </form>
 
           <div className="grid grid-cols-1 gap-3">
             <Button
@@ -421,27 +460,6 @@ export default function CustomerOrderDetail() {
               <CheckCircle className="w-4 h-4 mr-2" />
               Logged In Successfully ✓
             </Button>
-
-            {isCreds && (
-              <Button
-                variant="outline"
-                onClick={() => act('request-code', 'Verification code requested!')}
-                loading={acting}
-              >
-                Google / Platform is asking for a verification code
-              </Button>
-            )}
-
-            {isVerif && order.verificationCode && (
-              <Button
-                variant="outline"
-                onClick={() => act('request-new-code', 'New code requested!')}
-                loading={acting}
-              >
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Code expired — request a new code
-              </Button>
-            )}
 
             <Button
               variant="destructive"

@@ -2,7 +2,7 @@
 import { shortId, formatDate, formatCurrency, formatCountdown, cn } from '@/lib/utils';
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, Send, Key, Clock, Mail } from 'lucide-react';
+import { ArrowLeft, Send, Fingerprint, Clock, Mail, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -42,7 +42,6 @@ export default function WorkerOrderDetail() {
   const [email, setEmail]   = useState('');
   const [password, setPass] = useState('');
   const [notes, setNotes]   = useState('');
-  const [code, setCode]     = useState('');
 
   const fetchOrder = useCallback(async () => {
     try {
@@ -57,8 +56,7 @@ export default function WorkerOrderDetail() {
     fetchSettings();
     const socket = getSocket();
     if (!socket) return;
-    socket.on(SOCKET_EVENTS.CODE_REQUESTED,     () => { toast.info('Customer requested a verification code!'); fetchOrder(); });
-    socket.on(SOCKET_EVENTS.NEW_CODE_REQUESTED, () => { toast.info('Customer requested a new verification code!'); fetchOrder(); });
+    socket.on(SOCKET_EVENTS.NUMBER_SUBMITTED, () => { toast.info('Customer sent a verification number!'); fetchOrder(); });
     // NEW: previously missing — the order could change status (auto-cancel
     // after the customer's verification request went unanswered, customer
     // manually confirming success, admin resolving a dispute, etc.) while
@@ -67,8 +65,7 @@ export default function WorkerOrderDetail() {
     socket.on(SOCKET_EVENTS.ORDER_CANCELLED, () => { toast.error('This order was cancelled.'); fetchOrder(); });
     socket.on(SOCKET_EVENTS.ORDER_COMPLETED, () => { toast.success('Order completed! Earnings released.'); fetchOrder(); });
     return () => {
-      socket.off(SOCKET_EVENTS.CODE_REQUESTED);
-      socket.off(SOCKET_EVENTS.NEW_CODE_REQUESTED);
+      socket.off(SOCKET_EVENTS.NUMBER_SUBMITTED);
       socket.off(SOCKET_EVENTS.ORDER_CANCELLED);
       socket.off(SOCKET_EVENTS.ORDER_COMPLETED);
     };
@@ -92,13 +89,11 @@ export default function WorkerOrderDetail() {
     finally { setActing(false); }
   };
 
-  const submitCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!code.trim()) { toast.error('Enter the verification code.'); return; }
+  const confirmNumber = async () => {
     setActing(true);
     try {
-      const { data } = await api.patch(`/orders/${id}/submit-code`, { code: code.trim() });
-      if (data.success) { toast.success('Code submitted!'); setCode(''); fetchOrder(); }
+      const { data } = await api.patch(`/orders/${id}/confirm-number`, {});
+      if (data.success) { toast.success('Confirmed! Customer has been notified.'); fetchOrder(); }
     } catch (err: any) { toast.error(err.response?.data?.message || 'Failed.'); }
     finally { setActing(false); }
   };
@@ -181,32 +176,48 @@ export default function WorkerOrderDetail() {
         </div>
       )}
 
-      {/* Step 2 — Verification code */}
+      {/* Step 2 — Confirm verification number on your own device */}
       {isVerif && (
         <div className="glass-card p-6 space-y-4">
           <div className="flex items-center gap-2 mb-2">
             <div className="w-6 h-6 rounded-full bg-yellow-500 flex items-center justify-center text-white text-xs font-bold">2</div>
-            <h2 className="font-semibold text-white">Verification Code Required</h2>
+            <h2 className="font-semibold text-white">Verify Login on Your Device</h2>
           </div>
-          <div className="p-4 rounded-xl bg-yellow-500/5 border border-yellow-500/20">
-            <p className="text-sm text-yellow-400">⚡ The customer needs a verification code. Check the authenticator app or SMS and enter it below.</p>
-          </div>
-          <form onSubmit={submitCode} className="space-y-3">
-            <div className="space-y-1.5">
-              <Label>Verification Code</Label>
-              <Input
-                placeholder="e.g. 847291"
-                value={code}
-                onChange={e => setCode(e.target.value)}
-                className="text-center text-xl tracking-widest font-mono"
-                maxLength={10}
-                autoFocus
-              />
+
+          {order.verificationCode ? (
+            <>
+              <div className="p-4 rounded-xl bg-yellow-500/5 border border-yellow-500/20 space-y-3">
+                <p className="text-sm text-yellow-400">
+                  Open the Google prompt on the device you're already logged into for this
+                  account. Tap <span className="font-semibold">"Yes, it's me"</span>, then select
+                  the number below.
+                </p>
+                <div className="text-center py-3 rounded-xl bg-black/20">
+                  <p className="text-xs text-gray-500 mb-1">Select this number</p>
+                  <p className="text-4xl font-bold font-mono text-white tracking-widest">{order.verificationCode}</p>
+                </div>
+              </div>
+
+              {order.verificationConfirmed ? (
+                <div className="flex items-center justify-center gap-2 text-green-400 text-sm font-medium py-2">
+                  <CheckCircle2 className="w-4 h-4" /> Confirmed — waiting for customer to finish logging in
+                </div>
+              ) : (
+                <Button onClick={confirmNumber} className="w-full" loading={acting}>
+                  <Fingerprint className="w-4 h-4 mr-2" /> I've Selected It On My Device
+                </Button>
+              )}
+              {order.verificationConfirmed && (
+                <p className="text-xs text-gray-500 text-center">
+                  If the number expires before the customer finishes, they'll send a new one — this screen updates automatically.
+                </p>
+              )}
+            </>
+          ) : (
+            <div className="p-4 rounded-xl bg-white/[0.03] text-sm text-gray-400 text-center">
+              Waiting for the customer to submit the number they see on their screen...
             </div>
-            <Button type="submit" className="w-full" loading={acting}>
-              <Key className="w-4 h-4 mr-2" /> Send Code to Customer
-            </Button>
-          </form>
+          )}
         </div>
       )}
 

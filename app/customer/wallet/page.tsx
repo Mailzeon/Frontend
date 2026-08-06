@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Wallet as WalletIcon, ArrowDownLeft, ArrowUpRight, Plus, IndianRupee } from 'lucide-react';
 import { StatCard } from '@/components/shared/StatCard';
@@ -17,7 +17,7 @@ import { useAuthStore } from '@/store/authStore';
 const QUICK_AMOUNTS = [100, 200, 500, 1000];
 const MIN_RECHARGE = 10;
 
-export default function CustomerWalletPage() {
+function WalletContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, updateUser } = useAuthStore();
@@ -251,5 +251,25 @@ export default function CustomerWalletPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// useSearchParams() (used above to detect the ?payment=return&txn=... redirect
+// from Cashfree) opts the page out of static generation unless wrapped in a
+// Suspense boundary — without this, `next build` fails with:
+// "useSearchParams() should be wrapped in a suspense boundary".
+export default function CustomerWalletPage() {
+  return (
+    <Suspense fallback={
+      <div className="space-y-6">
+        <Skeleton className="h-9 w-40" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+        </div>
+      </div>
+    }>
+      <WalletContent />
+    </Suspense>
   );
 }

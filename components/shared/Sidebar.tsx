@@ -35,6 +35,7 @@ const adminNav: NavItem[] = [
   { href: '/admin/dashboard',    label: 'Dashboard',    Icon: BarChart3 },
   { href: '/admin/orders',       label: 'All Orders',   Icon: ClipboardList },
   { href: '/admin/users',        label: 'Users',        Icon: Users },
+  { href: '/admin/wallet',       label: 'Wallet',       Icon: Wallet },
   { href: '/admin/withdrawals',  label: 'Withdrawals',  Icon: Wallet },
   { href: '/admin/refunds',      label: 'Refunds',      Icon: Undo2 },
   { href: '/admin/disputes',     label: 'Disputes',     Icon: AlertTriangle },

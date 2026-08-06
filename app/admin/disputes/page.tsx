@@ -186,7 +186,7 @@ export default function AdminDisputesPage() {
                     )}
                     {detail.order?.verificationCode && (
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-500">Verification Number Used</span>
+                        <span className="text-gray-500">Verification Number Submitted</span>
                         <span className="text-gray-300">{detail.order.verificationCode}</span>
                       </div>
                     )}

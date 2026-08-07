@@ -21,6 +21,7 @@ export const initSocket = (userId: string, role: string): Socket => {
   socket.on('connect', () => {
     socket?.emit('join-room', userId);
     if (role === 'worker') socket?.emit('join-marketplace');
+    if (role === 'admin')  socket?.emit('join-admin');
   });
 
   socket.on('connect_error', (err) => {
@@ -66,5 +67,6 @@ export const SOCKET_EVENTS = {
   WITHDRAWAL_DONE:    'withdrawal-done',
   WORKER_APPROVED:    'worker-approved',
   WORKER_SUSPENDED:   'worker-suspended',
+  WORKER_ONLINE_COUNT_CHANGED: 'worker-online-count-changed',
   NOTIFICATION:       'notification',
 } as const;

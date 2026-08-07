@@ -296,10 +296,15 @@ export default function CustomerOrderDetail() {
             <p className="text-green-400">{formatDate(order.completedAt)}</p>
           </div>
         )}
-        {order.requestedEmail && (
+        {order.requestedEmail ? (
           <div className="col-span-2 pt-1 border-t border-white/[0.06]">
             <p className="text-gray-500 text-xs flex items-center gap-1"><Mail className="w-3 h-3" /> Requested Email</p>
             <p className="text-gray-300 font-mono text-sm break-all">{order.requestedEmail}</p>
+          </div>
+        ) : (
+          <div className="col-span-2 pt-1 border-t border-white/[0.06]">
+            <p className="text-gray-500 text-xs flex items-center gap-1"><Mail className="w-3 h-3" /> Email Type</p>
+            <p className="text-gray-300 text-sm">Random — any @{order.domain} account (worker's choice)</p>
           </div>
         )}
       </div>

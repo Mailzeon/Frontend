@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Save, IndianRupee, Clock, Timer, Percent, AlertTriangle, Trash2 } from 'lucide-react';
+import { Settings as SettingsIcon, Save, IndianRupee, Clock, Timer, Percent, AlertTriangle, Trash2, PlayCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -60,6 +60,20 @@ export default function AdminSettingsPage() {
       toast.error(err.response?.data?.message || 'Failed to reset data.');
     } finally {
       setResetting(false);
+    }
+  };
+
+  // ── Run the auto-complete/auto-cancel sweep immediately ───────────────────
+  const [runningAutoComplete, setRunningAutoComplete] = useState(false);
+  const handleRunAutoComplete = async () => {
+    setRunningAutoComplete(true);
+    try {
+      const { data } = await api.post('/admin/run-auto-complete', {});
+      if (data.success) toast.success('Sweep finished — check Orders to confirm any stuck ones cleared.');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to run sweep.');
+    } finally {
+      setRunningAutoComplete(false);
     }
   };
 
@@ -193,6 +207,27 @@ export default function AdminSettingsPage() {
           ℹ️ Customers now set their own order amount (minimum enforced here). The commission rate is
           locked in per-order at creation time — changing it here only affects orders placed afterward.
         </p>
+      </div>
+
+      {/* Auto-complete runs automatically every 5 minutes — this lets an
+          admin force it right now, e.g. to confirm a fix cleared already-
+          stuck orders instead of waiting for the next interval. */}
+      <div className="glass-card p-5">
+        <div className="flex items-start gap-3 mb-3">
+          <div className="w-9 h-9 rounded-xl bg-[#1C1C24] flex items-center justify-center shrink-0">
+            <PlayCircle className="w-4.5 h-4.5 text-gray-300" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-white">Run Auto-Complete Now</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Manually triggers the sweep that auto-completes/auto-cancels orders past their
+              Credential Timer / Auto-Complete Window, instead of waiting for the next scheduled run.
+            </p>
+          </div>
+        </div>
+        <Button onClick={handleRunAutoComplete} loading={runningAutoComplete} variant="outline">
+          <PlayCircle className="w-4 h-4 mr-2" /> Run Sweep Now
+        </Button>
       </div>
 
       {/* ── Danger zone ──────────────────────────────────────────────────── */}

@@ -30,6 +30,9 @@ export interface Order {
   commissionRate?:         number;
   status:                  OrderStatus;
   requestedEmail?:         string;
+  // Always present regardless of emailType (see backend Order model comment).
+  domain:                  string;
+  emailType:               'random' | 'custom';
   credentials?: {
     email:    string;
     password: string;

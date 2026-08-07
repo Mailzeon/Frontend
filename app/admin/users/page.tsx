@@ -99,6 +99,11 @@ export default function AdminUsersPage() {
                         {u.name.charAt(0).toUpperCase()}
                       </div>
                       <span className="font-medium text-white">{u.name}</span>
+                      {u.isDeleted && (
+                        <span className="text-[10px] font-semibold text-red-400 px-1.5 py-0.5 rounded bg-red-500/10 border border-red-500/20 shrink-0">
+                          Deleted
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-gray-400">{u.email}</td>

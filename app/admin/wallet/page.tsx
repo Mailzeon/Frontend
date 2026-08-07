@@ -73,13 +73,15 @@ export default function AdminWalletPage() {
                 <div className="flex items-center gap-3 min-w-0">
                   <div className={cn(
                     'w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
-                    isCredit(t) ? 'bg-green-500/10' : 'bg-red-500/10'
+                    t.status === 'failed' ? 'bg-gray-500/10' : isCredit(t) ? 'bg-green-500/10' : 'bg-red-500/10'
                   )}>
-                    {t.type === 'recharge'
-                      ? <IndianRupee className="w-4 h-4 text-green-400" />
-                      : isCredit(t)
-                        ? <ArrowDownLeft className="w-4 h-4 text-green-400" />
-                        : <ArrowUpRight className="w-4 h-4 text-red-400" />}
+                    {t.status === 'failed'
+                      ? <ArrowUpRight className="w-4 h-4 text-gray-500" />
+                      : t.type === 'recharge'
+                        ? <IndianRupee className="w-4 h-4 text-green-400" />
+                        : isCredit(t)
+                          ? <ArrowDownLeft className="w-4 h-4 text-green-400" />
+                          : <ArrowUpRight className="w-4 h-4 text-red-400" />}
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-white truncate">
@@ -95,7 +97,7 @@ export default function AdminWalletPage() {
                 <div className="text-right shrink-0">
                   <p className={cn(
                     'text-sm font-semibold',
-                    t.status === 'failed' ? 'text-gray-500 line-through' :
+                    t.status === 'failed' ? 'text-gray-500' :
                     isCredit(t) ? 'text-green-400' : 'text-red-400'
                   )}>
                     {isCredit(t) ? '+' : '−'}{formatCurrency(t.amount)}

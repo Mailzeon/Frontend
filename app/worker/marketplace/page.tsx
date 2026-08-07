@@ -2,7 +2,7 @@
 import { timeAgo, formatCurrency, cn } from '@/lib/utils';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Store, Clock, Zap, Mail } from 'lucide-react';
+import { Store, Clock, Zap, Mail, Shuffle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/toast';
@@ -108,10 +108,15 @@ export default function WorkerMarketplace() {
                 <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
                   <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{timeAgo(o.createdAt)}</span>
                 </div>
-                {o.requestedEmail && (
+                {o.requestedEmail ? (
                   <div className="flex items-center gap-1.5 mt-1.5 text-xs text-blue-400">
                     <Mail className="w-3 h-3 shrink-0" />
                     <span className="font-mono truncate">Create: {o.requestedEmail}</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 mt-1.5 text-xs text-purple-400">
+                    <Shuffle className="w-3 h-3 shrink-0" />
+                    <span className="truncate">Any @{o.domain} account works — old or new</span>
                   </div>
                 )}
               </div>

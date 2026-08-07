@@ -2,12 +2,15 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  ArrowLeft, Wallet, Star, ShoppingBag, AlertTriangle, Phone, Mail,
+  ArrowLeft, Wallet, Star, ShoppingBag, AlertTriangle, Phone, Mail, Trash2, ShieldAlert,
 } from 'lucide-react';
 import { StatCard } from '@/components/shared/StatCard';
 import { OrderStatusBadge } from '@/components/shared/OrderStatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
 import { formatCurrency, formatDate, shortId } from '@/lib/utils';
@@ -21,19 +24,61 @@ export default function AdminUserDetailPage() {
   const [detail, setDetail] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const { data } = await api.get(`/admin/users/${id}/detail`);
-        if (data.success) setDetail(data.data);
-      } catch (err: any) {
-        toast.error(err.response?.data?.message || 'Failed to load user detail.');
-      } finally {
-        setLoading(false);
+  const [showClearData, setShowClearData]   = useState(false);
+  const [clearConfirm, setClearConfirm]     = useState('');
+  const [clearingData, setClearingData]     = useState(false);
+
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
+  const [deleteConfirm, setDeleteConfirm]         = useState('');
+  const [deletingAccount, setDeletingAccount]     = useState(false);
+
+  const fetchDetail = async () => {
+    setLoading(true);
+    try {
+      const { data } = await api.get(`/admin/users/${id}/detail`);
+      if (data.success) setDetail(data.data);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to load user detail.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchDetail(); }, [id]);
+
+  const clearUserData = async () => {
+    if (clearConfirm !== 'CLEAR') { toast.error('Type CLEAR exactly to confirm.'); return; }
+    setClearingData(true);
+    try {
+      const { data } = await api.post(`/admin/users/${id}/clear-data`, { confirm: 'CLEAR' });
+      if (data.success) {
+        toast.success("This user's data has been cleared.");
+        setShowClearData(false);
+        fetchDetail();
       }
-    })();
-  }, [id]);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to clear data.');
+    } finally {
+      setClearingData(false);
+    }
+  };
+
+  const deleteAccount = async () => {
+    if (deleteConfirm !== 'DELETE') { toast.error('Type DELETE exactly to confirm.'); return; }
+    setDeletingAccount(true);
+    try {
+      const { data } = await api.delete(`/admin/users/${id}`);
+      if (data.success) {
+        toast.success('Account deleted.');
+        setShowDeleteAccount(false);
+        router.push('/admin/users');
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to delete account.');
+    } finally {
+      setDeletingAccount(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -77,6 +122,11 @@ export default function AdminUserDetailPage() {
         <div className="flex-1 min-w-[200px]">
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl font-bold text-white">{user.name}</h1>
+            {user.isDeleted && (
+              <span className="text-xs font-semibold text-red-400 flex items-center gap-1 px-2 py-0.5 rounded bg-red-500/10 border border-red-500/20">
+                <ShieldAlert className="w-3 h-3" /> Account Deleted
+              </span>
+            )}
             {isWorker && (
               <span className={`text-xs font-semibold capitalize ${LEVEL_COLOR[user.level ?? 'bronze']}`}>
                 {user.level ?? 'bronze'}
@@ -192,6 +242,92 @@ export default function AdminUserDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Danger zone — admin-only destructive actions on this specific user */}
+      {!user.isDeleted && (
+        <div className="glass-card p-5 border border-red-500/20 space-y-4">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-red-400" />
+            <h2 className="font-semibold text-white">Danger Zone</h2>
+          </div>
+
+          <div className="flex items-start justify-between gap-4 flex-wrap p-3 rounded-xl bg-white/[0.03]">
+            <div>
+              <p className="text-sm font-medium text-white">Clear This User's Data</p>
+              <p className="text-xs text-gray-500 mt-0.5 max-w-md">
+                Wipes every order, dispute, transaction, notification, and rating this user is part of,
+                and resets their wallet/level stats. The ACCOUNT itself stays — they can still log in
+                with a clean slate. Note: this also removes these records from the other party's
+                history in any shared order/dispute.
+              </p>
+            </div>
+            <Button variant="outline" className="shrink-0" onClick={() => { setClearConfirm(''); setShowClearData(true); }}>
+              Clear Data
+            </Button>
+          </div>
+
+          <div className="flex items-start justify-between gap-4 flex-wrap p-3 rounded-xl bg-white/[0.03]">
+            <div>
+              <p className="text-sm font-medium text-white">Delete This Account</p>
+              <p className="text-xs text-gray-500 mt-0.5 max-w-md">
+                Removes their name/email and blocks them from logging in — they'll no longer count
+                toward total {isWorker ? 'workers' : 'customers'}. Their existing orders, transactions,
+                and ratings stay exactly as they are. Blocked if they have an order still in progress.
+              </p>
+            </div>
+            <Button variant="destructive" className="shrink-0" onClick={() => { setDeleteConfirm(''); setShowDeleteAccount(true); }}>
+              <Trash2 className="w-4 h-4 mr-2" /> Delete Account
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Clear Data confirmation */}
+      <Dialog open={showClearData} onOpenChange={setShowClearData}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Clear {user.name}'s Data?</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="p-3 rounded-xl bg-red-500/5 border border-red-500/20 text-sm text-red-400">
+              This cannot be undone. Every order, dispute, transaction, notification, and rating tied
+              to this user will be permanently deleted — including this user's side of any shared
+              order/dispute, which also removes it from the other party's history.
+            </div>
+            <div className="space-y-1.5">
+              <Label>Type <span className="font-mono text-white">CLEAR</span> to confirm</Label>
+              <Input value={clearConfirm} onChange={e => setClearConfirm(e.target.value)} autoFocus />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowClearData(false)}>Cancel</Button>
+              <Button variant="destructive" loading={clearingData} onClick={clearUserData}>
+                Clear Data
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Account confirmation */}
+      <Dialog open={showDeleteAccount} onOpenChange={setShowDeleteAccount}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Delete {user.name}'s Account?</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="p-3 rounded-xl bg-red-500/5 border border-red-500/20 text-sm text-red-400">
+              This cannot be undone. They'll immediately lose access. Blocked automatically if they
+              have any order still in progress.
+            </div>
+            <div className="space-y-1.5">
+              <Label>Type <span className="font-mono text-white">DELETE</span> to confirm</Label>
+              <Input value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)} autoFocus />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowDeleteAccount(false)}>Cancel</Button>
+              <Button variant="destructive" loading={deletingAccount} onClick={deleteAccount}>
+                <Trash2 className="w-4 h-4 mr-2" /> Delete Permanently
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

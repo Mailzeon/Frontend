@@ -15,7 +15,7 @@ import { openCashfreeCheckout } from '@/lib/cashfree';
 import { useAuthStore } from '@/store/authStore';
 
 const QUICK_AMOUNTS = [100, 200, 500, 1000];
-const MIN_RECHARGE = 10;
+const MIN_RECHARGE = 1;
 
 function WalletContent() {
   const router = useRouter();
@@ -115,11 +115,27 @@ function WalletContent() {
     }
   };
 
-  const iconFor = (type: string) => {
-    if (type === 'credit' || type === 'recharge') {
-      return <ArrowDownLeft className="w-4 h-4 text-green-400" />;
+  // Whether this transaction ADDS money to the wallet (recharge, credit) vs
+  // REMOVES it (debit, withdrawal) — only meaningful for a 'completed'
+  // transaction. A 'failed' one never moved any money regardless of type,
+  // so it's always shown neutrally (gray), never red/green.
+  const isCredit = (type: string) => type === 'credit' || type === 'recharge';
+
+  const iconFor = (t: any) => {
+    if (t.status === 'failed') return <ArrowUpRight className="w-4 h-4 text-gray-500" />;
+    return isCredit(t.type)
+      ? <ArrowDownLeft className="w-4 h-4 text-green-400" />
+      : <ArrowUpRight className="w-4 h-4 text-red-400" />;
+  };
+
+  const StatusBadge = ({ status }: { status: string }) => {
+    if (status === 'pending') {
+      return <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">Pending</span>;
     }
-    return <ArrowUpRight className="w-4 h-4 text-red-400" />;
+    if (status === 'failed') {
+      return <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-500/10 text-gray-400 border border-gray-500/20">Failed</span>;
+    }
+    return null; // 'completed' needs no badge — the colored amount already says it succeeded
   };
 
   return (
@@ -171,24 +187,23 @@ function WalletContent() {
               <div key={t._id} className="flex items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-3">
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                    t.type === 'credit' || t.type === 'recharge' ? 'bg-green-500/10' : 'bg-red-500/10'
+                    t.status === 'failed' ? 'bg-gray-500/10' : isCredit(t.type) ? 'bg-green-500/10' : 'bg-red-500/10'
                   }`}>
-                    {iconFor(t.type)}
+                    {iconFor(t)}
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-white">
+                    <p className="text-sm font-medium text-white flex items-center gap-2">
                       {t.description}
-                      {t.status === 'pending' && <span className="ml-2 text-xs text-yellow-400">(pending)</span>}
-                      {t.status === 'failed' && <span className="ml-2 text-xs text-red-400">(failed)</span>}
+                      <StatusBadge status={t.status} />
                     </p>
                     <p className="text-xs text-gray-500">{formatDate(t.createdAt)}</p>
                   </div>
                 </div>
                 <span className={`text-sm font-semibold ${
-                  t.status === 'failed' ? 'text-gray-500 line-through' :
-                  (t.type === 'credit' || t.type === 'recharge') ? 'text-green-400' : 'text-red-400'
+                  t.status === 'failed' ? 'text-gray-500' :
+                  isCredit(t.type) ? 'text-green-400' : 'text-red-400'
                 }`}>
-                  {(t.type === 'credit' || t.type === 'recharge') ? '+' : '−'}{formatCurrency(t.amount)}
+                  {isCredit(t.type) ? '+' : '−'}{formatCurrency(t.amount)}
                 </span>
               </div>
             ))}
@@ -262,7 +277,13 @@ export default function CustomerWalletPage() {
   return (
     <Suspense fallback={
       <div className="space-y-6">
-        <Skeleton className="h-9 w-40" />
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-2xl font-bold text-white tracking-tight">Wallet</h1>
+            <p className="text-gray-400 text-sm mt-0.5">Your credit balance and payment history</p>
+          </div>
+          <Button disabled><Plus className="w-4 h-4 mr-2" /> Add Funds</Button>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Skeleton className="h-24" />
           <Skeleton className="h-24" />

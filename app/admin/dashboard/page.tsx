@@ -6,6 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
+import { getSocket, SOCKET_EVENTS } from '@/lib/socket';
 import {
   LineChart, Line, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
@@ -49,6 +50,19 @@ export default function AdminDashboard() {
     fetchAll();
   }, []);
 
+  // Live "Workers Online" count — updates the instant a worker flips their
+  // switch, or the instant their connection drops (app closed, lost
+  // internet, etc.), with zero polling and no page refresh needed.
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+    const handler = (payload: { onlineWorkers: number }) => {
+      setStats((prev: any) => prev ? { ...prev, onlineWorkers: payload.onlineWorkers } : prev);
+    };
+    socket.on(SOCKET_EVENTS.WORKER_ONLINE_COUNT_CHANGED, handler);
+    return () => { socket.off(SOCKET_EVENTS.WORKER_ONLINE_COUNT_CHANGED, handler); };
+  }, []);
+
   if (loading) return (
     <div className="space-y-6">
       <Skeleton className="h-8 w-48" />
@@ -82,7 +96,7 @@ export default function AdminDashboard() {
         <StatCard title="Total Orders"   value={stats?.totalOrders  ?? 0}    icon={ShoppingBag}  color="purple" />
         <StatCard title="Today Orders"   value={stats?.todayOrders  ?? 0}    icon={Clock}        color="yellow" />
         <StatCard title="Pending Orders" value={stats?.pendingOrders ?? 0}   icon={Clock}         color="yellow" />
-        <StatCard title="Online Now"     value={stats?.onlineWorkers ?? 0}   icon={Activity}      color="green"  />
+        <StatCard title="Workers Online" value={stats?.onlineWorkers ?? 0}   icon={Activity}      color="green"  />
       </div>
 
       {/* User stats */}

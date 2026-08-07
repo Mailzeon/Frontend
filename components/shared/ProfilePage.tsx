@@ -1,9 +1,11 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
-import { User as UserIcon, Lock, Save, Wallet, Phone, Camera, Loader2, Bell, BellOff } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { User as UserIcon, Lock, Save, Wallet, Phone, Camera, Loader2, Bell, BellOff, AlertTriangle, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
@@ -18,7 +20,8 @@ interface ProfilePageProps {
 }
 
 export function ProfilePage({ showPaymentDetails = false }: ProfilePageProps) {
-  const { user, updateUser } = useAuthStore();
+  const { user, updateUser, clearAuth } = useAuthStore();
+  const router = useRouter();
 
   // ── Profile picture ───────────────────────────────────────────────────────
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -157,6 +160,31 @@ export function ProfilePage({ showPaymentDetails = false }: ProfilePageProps) {
       toast.error(err.message || 'Could not update push notification settings.');
     } finally {
       setPushLoading(false);
+    }
+  };
+
+  // ── Delete my account ──────────────────────────────────────────────────
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText]  = useState('');
+  const [deletingAccount, setDeletingAccount]      = useState(false);
+
+  const deleteMyAccount = async () => {
+    if (deleteConfirmText !== 'DELETE') {
+      toast.error('Type DELETE exactly to confirm.');
+      return;
+    }
+    setDeletingAccount(true);
+    try {
+      const { data } = await api.delete('/users/me');
+      if (data.success) {
+        toast.success('Your account has been deleted.');
+        clearAuth();
+        router.push('/login');
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to delete account.');
+    } finally {
+      setDeletingAccount(false);
     }
   };
 
@@ -321,6 +349,43 @@ export function ProfilePage({ showPaymentDetails = false }: ProfilePageProps) {
           </form>
         </div>
       )}
+      {/* Danger zone — delete my account */}
+      <div className="glass-card p-5 border border-red-500/20">
+        <div className="flex items-center gap-2 mb-2">
+          <AlertTriangle className="w-4 h-4 text-red-400" />
+          <h2 className="font-semibold text-white">Danger Zone</h2>
+        </div>
+        <p className="text-sm text-gray-400 mb-4">
+          Permanently deletes your account. Your name and email will be removed and you won't be
+          able to log in again. Any orders, transactions, or ratings tied to your account stay in
+          the system as they were — this only removes your ability to sign in as this account.
+        </p>
+        <Button variant="destructive" onClick={() => { setDeleteConfirmText(''); setShowDeleteAccount(true); }}>
+          <Trash2 className="w-4 h-4 mr-2" /> Delete My Account
+        </Button>
+      </div>
+
+      <Dialog open={showDeleteAccount} onOpenChange={setShowDeleteAccount}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Delete Your Account?</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="p-3 rounded-xl bg-red-500/5 border border-red-500/20 text-sm text-red-400">
+              This cannot be undone. If you have any order still in progress, deletion will be
+              blocked until it's finished, cancelled, or resolved.
+            </div>
+            <div className="space-y-1.5">
+              <Label>Type <span className="font-mono text-white">DELETE</span> to confirm</Label>
+              <Input value={deleteConfirmText} onChange={e => setDeleteConfirmText(e.target.value)} autoFocus />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowDeleteAccount(false)}>Cancel</Button>
+              <Button variant="destructive" loading={deletingAccount} onClick={deleteMyAccount}>
+                <Trash2 className="w-4 h-4 mr-2" /> Delete Permanently
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

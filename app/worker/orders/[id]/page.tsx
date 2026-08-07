@@ -2,7 +2,7 @@
 import { shortId, formatDate, formatCurrency, formatCountdown, cn } from '@/lib/utils';
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, Send, Fingerprint, Clock, Mail, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Send, Fingerprint, Clock, Mail, CheckCircle2, Shuffle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -131,15 +131,30 @@ export default function WorkerOrderDetail() {
         {isAccepted && <TimerBadge expiresAt={order.timerExpiresAt} />}
       </div>
 
-      {/* NEW: requested email callout — shown throughout the working states */}
-      {order.requestedEmail && (isAccepted || order.status === 'credentials_submitted' || isVerif) && (
-        <div className="glass-card p-4 border border-blue-500/20 bg-blue-500/5">
-          <div className="flex items-center gap-2 mb-1">
-            <Mail className="w-4 h-4 text-blue-400 shrink-0" />
-            <p className="text-xs text-blue-400 font-medium uppercase tracking-wider">Email to create</p>
+      {/* Requested email callout — shown throughout the working states.
+          'custom': exact address required. 'random': any address on the
+          right domain works — this tells the worker which domain that is. */}
+      {(isAccepted || order.status === 'credentials_submitted' || isVerif) && (
+        order.requestedEmail ? (
+          <div className="glass-card p-4 border border-blue-500/20 bg-blue-500/5">
+            <div className="flex items-center gap-2 mb-1">
+              <Mail className="w-4 h-4 text-blue-400 shrink-0" />
+              <p className="text-xs text-blue-400 font-medium uppercase tracking-wider">Email to create</p>
+            </div>
+            <p className="text-white font-mono text-sm break-all">{order.requestedEmail}</p>
           </div>
-          <p className="text-white font-mono text-sm break-all">{order.requestedEmail}</p>
-        </div>
+        ) : (
+          <div className="glass-card p-4 border border-purple-500/20 bg-purple-500/5">
+            <div className="flex items-center gap-2 mb-1">
+              <Shuffle className="w-4 h-4 text-purple-400 shrink-0" />
+              <p className="text-xs text-purple-400 font-medium uppercase tracking-wider">Random — any account works</p>
+            </div>
+            <p className="text-white text-sm">
+              Use any <span className="font-mono">@{order.domain}</span> account you already have, or make a new
+              one — old or new, doesn't matter. Just make sure it's on <span className="font-mono">@{order.domain}</span>.
+            </p>
+          </div>
+        )
       )}
 
       {/* Step 1 — Submit credentials */}
@@ -149,12 +164,16 @@ export default function WorkerOrderDetail() {
             <div className="w-6 h-6 rounded-full bg-purple-500 flex items-center justify-center text-white text-xs font-bold">1</div>
             <h2 className="font-semibold text-white">Submit Credentials</h2>
           </div>
-          <p className="text-sm text-gray-400">Create the account using the exact email shown above, then submit the password here. The customer will NOT see your name or contact info.</p>
+          <p className="text-sm text-gray-400">
+            {order.requestedEmail
+              ? 'Create the account using the exact email shown above, then submit the password here. The customer will NOT see your name or contact info.'
+              : `Submit any @${order.domain} account you already have, or create a new one — then submit its password here. The customer will NOT see your name or contact info.`}
+          </p>
           <form onSubmit={submitCredentials} className="space-y-3">
             <div className="space-y-1.5">
               <Label>Email {order.requestedEmail && <span className="text-gray-500">(locked to customer&apos;s request)</span>}</Label>
               <Input
-                placeholder="account@example.com"
+                placeholder={order.requestedEmail ? 'account@example.com' : `youraccount@${order.domain}`}
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 disabled={!!order.requestedEmail}

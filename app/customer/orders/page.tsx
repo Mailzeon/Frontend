@@ -284,7 +284,9 @@ export default function CustomerOrdersPage() {
               </div>
             )}
             {emailType === 'random' && domain && (
-              <p className="text-xs text-gray-500">A random email address will be generated automatically on @{domain}.</p>
+              <p className="text-xs text-gray-500">
+                Any @{domain} account works — the worker will provide one (new or already made) and share its login with you.
+              </p>
             )}
 
             {!user?.phone && (

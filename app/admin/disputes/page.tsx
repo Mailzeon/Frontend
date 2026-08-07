@@ -160,12 +160,17 @@ export default function AdminDisputesPage() {
                       <div><span className="text-gray-500">Created</span><p className="text-gray-300">{formatDate(detail.order?.createdAt)}</p></div>
                       <div><span className="text-gray-500">Credentials Submitted</span><p className="text-gray-300">{detail.order?.credentialsSubmittedAt ? formatDate(detail.order.credentialsSubmittedAt) : '—'}</p></div>
                     </div>
-                    {detail.order?.requestedEmail && (
+                    {detail.order?.requestedEmail ? (
                       <div className="flex items-center justify-between text-xs pt-1 border-t border-white/[0.05]">
                         <span className="text-gray-500">Requested Email</span>
                         <button onClick={() => copyText(detail.order.requestedEmail)} className="text-gray-300 flex items-center gap-1 hover:text-white">
                           {detail.order.requestedEmail} <Copy className="w-3 h-3" />
                         </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between text-xs pt-1 border-t border-white/[0.05]">
+                        <span className="text-gray-500">Email Type</span>
+                        <span className="text-gray-300">Random — any @{detail.order?.domain} account</span>
                       </div>
                     )}
                     {detail.order?.credentials?.email && (

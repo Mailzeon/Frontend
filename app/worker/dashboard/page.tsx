@@ -1,7 +1,7 @@
 'use client';
 import { shortId, timeAgo, formatCurrency, cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
-import { CheckCircle, Clock, Wallet, ToggleLeft, ToggleRight, Store } from 'lucide-react';
+import { CheckCircle, Clock, Wallet, Wifi, Store } from 'lucide-react';
 import { StatCard } from '@/components/shared/StatCard';
 import { OrderStatusBadge } from '@/components/shared/OrderStatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -19,12 +19,13 @@ const LEVEL_COLORS: Record<string, string> = {
 };
 
 export default function WorkerDashboard() {
-  const { user, updateUser } = useAuthStore();
+  const { user } = useAuthStore();
   const [orders,   setOrders]   = useState<Order[]>([]);
   const [wallet,   setWallet]   = useState<any>(null);
   const [loading,  setLoading]  = useState(true);
-  const [toggling, setToggling] = useState(false);
-  const isOnline = user?.isOnline ?? false;
+  // No toggle anymore — this just reflects the actual live socket
+  // connection, the same signal the backend uses to mark you online.
+  const [connected, setConnected] = useState(false);
 
   useEffect(() => {
     const fetch = async () => {
@@ -40,37 +41,24 @@ export default function WorkerDashboard() {
     };
     fetch();
 
-    // Listen for new order alerts
+    // Listen for new order alerts + reflect the real connection state —
+    // this IS what makes you "online" now, nothing else to flip.
     const socket = getSocket();
     if (socket) {
+      setConnected(socket.connected);
       const onNew = () => toast.info('🔔 New order available in Marketplace!');
+      const onConnect = () => setConnected(true);
+      const onDisconnect = () => setConnected(false);
       socket.on(SOCKET_EVENTS.NEW_ORDER, onNew);
-      return () => { socket.off(SOCKET_EVENTS.NEW_ORDER, onNew); };
+      socket.on('connect', onConnect);
+      socket.on('disconnect', onDisconnect);
+      return () => {
+        socket.off(SOCKET_EVENTS.NEW_ORDER, onNew);
+        socket.off('connect', onConnect);
+        socket.off('disconnect', onDisconnect);
+      };
     }
   }, []);
-
-  const toggleStatus = async () => {
-    if (!user?.isApproved) {
-      toast.error('Your account is pending admin approval.');
-      return;
-    }
-    setToggling(true);
-    try {
-      const newStatus = !isOnline;
-      const { data }  = await api.patch('/users/status', { isOnline: newStatus });
-      if (data.success) {
-        updateUser({ isOnline: newStatus });
-        toast.success(data.message);
-        const socket = getSocket();
-        if (newStatus) socket?.emit('join-marketplace');
-        else           socket?.emit('leave-marketplace');
-      }
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to update status.');
-    } finally {
-      setToggling(false);
-    }
-  };
 
   const completed = orders.filter(o => o.status === 'completed').length;
   const active    = orders.filter(o => !['completed', 'cancelled'].includes(o.status)).length;
@@ -85,21 +73,20 @@ export default function WorkerDashboard() {
           <p className="text-gray-400 text-sm mt-0.5">Welcome back, {user?.name}</p>
         </div>
 
-        <button
-          onClick={toggleStatus}
-          disabled={toggling}
+        {/* No toggle — this just reflects whether you're actually
+            connected right now. Close the app and it goes gray; reopen it
+            and it's green again, automatically. */}
+        <div
           className={cn(
-            'flex items-center gap-2.5 px-4 py-2.5 rounded-xl border font-medium text-sm transition-all duration-200',
-            isOnline
-              ? 'bg-green-500/10 border-green-500/30 text-green-400 hover:bg-green-500/20'
-              : 'bg-[#1C1C24]/50 border-white/[0.06] text-gray-400 hover:text-white hover:bg-white/[0.05]',
-            toggling && 'opacity-60 cursor-wait'
+            'flex items-center gap-2.5 px-4 py-2.5 rounded-xl border font-medium text-sm',
+            connected
+              ? 'bg-green-500/10 border-green-500/30 text-green-400'
+              : 'bg-[#1C1C24]/50 border-white/[0.06] text-gray-400'
           )}
         >
-          {isOnline
-            ? <><ToggleRight className="w-5 h-5" /> Online</>
-            : <><ToggleLeft  className="w-5 h-5" /> Offline</>}
-        </button>
+          <Wifi className="w-5 h-5" />
+          {connected ? 'Online' : 'Connecting…'}
+        </div>
       </div>
 
       {/* Approval warning */}

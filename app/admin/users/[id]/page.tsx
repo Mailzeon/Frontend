@@ -80,6 +80,19 @@ export default function AdminUserDetailPage() {
     }
   };
 
+  const [unlocking, setUnlocking] = useState(false);
+  const unlockWorker = async () => {
+    setUnlocking(true);
+    try {
+      const { data } = await api.post(`/admin/users/${id}/unlock`, {});
+      if (data.success) { toast.success('Lock lifted.'); fetchDetail(); }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to lift lock.');
+    } finally {
+      setUnlocking(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-4 max-w-4xl">
@@ -139,6 +152,20 @@ export default function AdminUserDetailPage() {
             )}
             {isWorker && user.isOnline && <span className="w-2 h-2 rounded-full bg-green-400" title="Online" />}
           </div>
+          {isWorker && (user.strikeCount > 0 || (user.lockedUntil && new Date(user.lockedUntil) > new Date())) && (
+            <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+              {user.strikeCount > 0 && (
+                <span className="text-xs font-medium text-amber-400 flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">
+                  <ShieldAlert className="w-3 h-3" /> {user.strikeCount} strike{user.strikeCount > 1 ? 's' : ''}
+                </span>
+              )}
+              {user.lockedUntil && new Date(user.lockedUntil) > new Date() && (
+                <span className="text-xs font-medium text-red-400 flex items-center gap-1 px-2 py-0.5 rounded bg-red-500/10 border border-red-500/20">
+                  🔒 Locked until {formatDate(user.lockedUntil)}
+                </span>
+              )}
+            </div>
+          )}
           <div className="flex items-center gap-4 mt-1 flex-wrap text-sm text-gray-400">
             <span className="inline-flex items-center gap-1"><Mail className="w-3.5 h-3.5" /> {user.email}</span>
             {user.phone && <span className="inline-flex items-center gap-1"><Phone className="w-3.5 h-3.5" /> {user.phone}</span>}
@@ -250,6 +277,21 @@ export default function AdminUserDetailPage() {
             <AlertTriangle className="w-4 h-4 text-red-400" />
             <h2 className="font-semibold text-white">Danger Zone</h2>
           </div>
+
+          {isWorker && user.lockedUntil && new Date(user.lockedUntil) > new Date() && (
+            <div className="flex items-start justify-between gap-4 flex-wrap p-3 rounded-xl bg-white/[0.03]">
+              <div>
+                <p className="text-sm font-medium text-white">Lift Dispute-Strike Lock Early</p>
+                <p className="text-xs text-gray-500 mt-0.5 max-w-md">
+                  Currently locked until {formatDate(user.lockedUntil)}. This ends the lock immediately —
+                  their strike count stays on record, only the current lockout is lifted.
+                </p>
+              </div>
+              <Button variant="outline" className="shrink-0" loading={unlocking} onClick={unlockWorker}>
+                Lift Lock Now
+              </Button>
+            </div>
+          )}
 
           <div className="flex items-start justify-between gap-4 flex-wrap p-3 rounded-xl bg-white/[0.03]">
             <div>

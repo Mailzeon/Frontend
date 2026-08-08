@@ -11,6 +11,8 @@ import { useAuthStore } from '@/store/authStore';
 import { Order } from '@/types';
 import Link from 'next/link';
 import { getSocket, SOCKET_EVENTS } from '@/lib/socket';
+import { useLockStatus } from '@/hooks/useLockStatus';
+import { Lock } from 'lucide-react';
 
 const LEVEL_COLORS: Record<string, string> = {
   bronze: 'text-amber-500 border-amber-500/30 bg-amber-500/10',
@@ -20,6 +22,7 @@ const LEVEL_COLORS: Record<string, string> = {
 
 export default function WorkerDashboard() {
   const { user } = useAuthStore();
+  const { isLocked, strikeCount, formattedTime } = useLockStatus();
   const [orders,   setOrders]   = useState<Order[]>([]);
   const [wallet,   setWallet]   = useState<any>(null);
   const [loading,  setLoading]  = useState(true);
@@ -93,6 +96,22 @@ export default function WorkerDashboard() {
       {!user?.isApproved && (
         <div className="p-4 rounded-xl bg-yellow-500/5 border border-yellow-500/20 text-sm text-yellow-400">
           ⏳ Your account is pending admin approval. You will be notified once approved.
+        </div>
+      )}
+
+      {/* Dispute-strike lock — still shows the level badge and every order
+          in the marketplace stays visible; only accepting is blocked. */}
+      {isLocked && (
+        <div className="p-4 rounded-xl bg-red-500/5 border border-red-500/20 space-y-1">
+          <div className="flex items-center gap-2 text-red-400 font-semibold text-sm">
+            <Lock className="w-4 h-4" /> Account Locked — Strike {strikeCount}
+          </div>
+          <p className="text-sm text-red-300">
+            A dispute against you was resolved in the customer's favor. You can't accept new orders
+            for <span className="font-mono font-semibold">{formattedTime}</span>. Make sure every
+            account you deliver is genuine and working — repeated strikes lock you out for longer
+            each time.
+          </p>
         </div>
       )}
 

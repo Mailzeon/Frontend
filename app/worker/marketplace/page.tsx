@@ -41,7 +41,6 @@ export default function WorkerMarketplace() {
 
   const accept = async (orderId: string) => {
     if (!user?.isApproved) { toast.error('Your account is pending admin approval.'); return; }
-    if (!user?.isOnline)   { toast.error('You must be online to accept orders. Toggle your status on the dashboard.'); return; }
     setAccepting(orderId);
     try {
       const { data } = await api.patch(`/orders/${orderId}/accept`);
@@ -71,12 +70,6 @@ export default function WorkerMarketplace() {
       {!user?.isApproved && (
         <div className="p-4 rounded-xl bg-yellow-500/5 border border-yellow-500/20 text-sm text-yellow-400">
           ⏳ Your account is pending admin approval. You cannot accept orders until approved.
-        </div>
-      )}
-
-      {!user?.isOnline && user?.isApproved && (
-        <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/20 text-sm text-blue-400">
-          💤 You are currently offline. Go to your dashboard and toggle Online to start accepting orders.
         </div>
       )}
 
@@ -128,7 +121,7 @@ export default function WorkerMarketplace() {
                 <Button
                   onClick={() => accept(o._id)}
                   loading={accepting === o._id}
-                  disabled={!user?.isApproved || !user?.isOnline}>
+                  disabled={!user?.isApproved}>
                   Accept
                 </Button>
               </div>

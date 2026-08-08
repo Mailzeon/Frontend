@@ -11,9 +11,12 @@ import { useAuthStore } from '@/store/authStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { Order } from '@/types';
 import { getSocket, SOCKET_EVENTS } from '@/lib/socket';
+import { useLockStatus } from '@/hooks/useLockStatus';
+import { Lock } from 'lucide-react';
 
 export default function WorkerMarketplace() {
   const { user } = useAuthStore();
+  const { isLocked, strikeCount, formattedTime } = useLockStatus();
   const { orderTimerMinutes, fetchSettings } = useSettingsStore();
   const router = useRouter();
   const [orders, setOrders]       = useState<Order[]>([]);
@@ -41,6 +44,7 @@ export default function WorkerMarketplace() {
 
   const accept = async (orderId: string) => {
     if (!user?.isApproved) { toast.error('Your account is pending admin approval.'); return; }
+    if (isLocked) { toast.error(`Your account is locked for ${formattedTime} due to a dispute strike.`); return; }
     setAccepting(orderId);
     try {
       const { data } = await api.patch(`/orders/${orderId}/accept`);
@@ -70,6 +74,20 @@ export default function WorkerMarketplace() {
       {!user?.isApproved && (
         <div className="p-4 rounded-xl bg-yellow-500/5 border border-yellow-500/20 text-sm text-yellow-400">
           ⏳ Your account is pending admin approval. You cannot accept orders until approved.
+        </div>
+      )}
+
+      {/* Every order below still shows normally during a lock — only
+          accepting is blocked (see the accept() guard + disabled buttons). */}
+      {isLocked && (
+        <div className="p-4 rounded-xl bg-red-500/5 border border-red-500/20 space-y-1">
+          <div className="flex items-center gap-2 text-red-400 font-semibold text-sm">
+            <Lock className="w-4 h-4" /> Account Locked — Strike {strikeCount}
+          </div>
+          <p className="text-sm text-red-300">
+            You can browse, but can't accept any order for <span className="font-mono font-semibold">{formattedTime}</span> due
+            to a dispute resolved against you.
+          </p>
         </div>
       )}
 
@@ -121,7 +139,7 @@ export default function WorkerMarketplace() {
                 <Button
                   onClick={() => accept(o._id)}
                   loading={accepting === o._id}
-                  disabled={!user?.isApproved}>
+                  disabled={!user?.isApproved || isLocked}>
                   Accept
                 </Button>
               </div>

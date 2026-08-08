@@ -120,10 +120,13 @@ export default function WorkerMarketplace() {
                   <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{timeAgo(o.createdAt)}</span>
                 </div>
                 {o.requestedEmail ? (
-                  <div className="flex items-center gap-1.5 mt-1.5 text-xs text-blue-400">
-                    <Mail className="w-3 h-3 shrink-0" />
-                    <span className="font-mono truncate">Create: {o.requestedEmail}</span>
-                  </div>
+                  <>
+                    <div className="flex items-center gap-1.5 mt-1.5 text-xs text-blue-400">
+                      <Mail className="w-3 h-3 shrink-0" />
+                      <span className="font-mono truncate">Custom: {o.requestedEmail}</span>
+                    </div>
+                    <p className="text-[10px] text-gray-600 mt-0.5">Full address revealed after you accept</p>
+                  </>
                 ) : (
                   <div className="flex items-center gap-1.5 mt-1.5 text-xs text-purple-400">
                     <Shuffle className="w-3 h-3 shrink-0" />

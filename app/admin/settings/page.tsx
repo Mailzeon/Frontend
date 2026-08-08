@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Save, IndianRupee, Clock, Timer, Percent, AlertTriangle, Trash2, PlayCircle } from 'lucide-react';
+import { Settings as SettingsIcon, Save, IndianRupee, Clock, Timer, Percent, AlertTriangle, Trash2, PlayCircle, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,6 +28,10 @@ const SETTING_META: Record<string, { label: string; icon: React.ElementType; suf
   platformCommissionRate: { label: 'Platform Commission',    icon: Percent,     suffix: '%',       order: 2, max: 100 },
   orderTimerMinutes:      { label: 'Credential Timer',       icon: Timer,       suffix: 'minutes', order: 3 },
   autoCompleteHours:      { label: 'Auto-Complete Window',   icon: Clock,       suffix: 'hours',   order: 4 },
+  strikeLockHours1:       { label: 'Strike 1 — Lock Duration', icon: ShieldAlert, suffix: 'hours', order: 5 },
+  strikeLockHours2:       { label: 'Strike 2 — Lock Duration', icon: ShieldAlert, suffix: 'hours', order: 6 },
+  strikeLockHours3:       { label: 'Strike 3 — Lock Duration', icon: ShieldAlert, suffix: 'hours', order: 7 },
+  strikeLockHours4Plus:   { label: 'Strike 4+ — Lock Duration', icon: ShieldAlert, suffix: 'hours', order: 8 },
 };
 
 const KNOWN_KEYS = Object.keys(SETTING_META);
@@ -206,6 +210,17 @@ export default function AdminSettingsPage() {
         <p className="text-sm text-blue-400">
           ℹ️ Customers now set their own order amount (minimum enforced here). The commission rate is
           locked in per-order at creation time — changing it here only affects orders placed afterward.
+        </p>
+      </div>
+
+      <div className="p-4 rounded-xl bg-red-500/5 border border-red-500/20">
+        <p className="text-sm text-red-400">
+          🔒 Strike durations control the dispute-penalty system: every time a dispute is resolved
+          against a worker (or they go silent on a live verification request), they're locked out of
+          accepting new orders for the duration below — escalating with each repeat offense. They still
+          see every order in the marketplace during the lock, just can't accept any. At 4+ strikes,
+          every admin gets notified so someone can decide whether to permanently suspend them from
+          their profile page.
         </p>
       </div>
 

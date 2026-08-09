@@ -138,6 +138,9 @@ export default function WorkerMarketplace() {
                 <div className="text-right">
                   <p className="text-xs text-gray-500">You earn</p>
                   <p className="text-xl font-bold text-green-400">{formatCurrency(o.workerEarning)}</p>
+                  {(o.appliedReferralTaxRate ?? 0) > 0 && (
+                    <p className="text-[10px] text-purple-400">{o.appliedReferralTaxRate}% referral fee applied</p>
+                  )}
                 </div>
                 <Button
                   onClick={() => accept(o._id)}

@@ -64,6 +64,8 @@ export const SOCKET_EVENTS = {
   ORDER_CANCELLED:    'order-cancelled',
   NUMBER_SUBMITTED:   'number-submitted',
   NUMBER_CONFIRMED:   'number-confirmed',
+  CODE_REQUESTED:     'code-requested',
+  CODE_RECEIVED:      'code-received',
   WITHDRAWAL_DONE:    'withdrawal-done',
   WORKER_APPROVED:    'worker-approved',
   WORKER_SUSPENDED:   'worker-suspended',

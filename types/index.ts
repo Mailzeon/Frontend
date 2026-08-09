@@ -33,6 +33,10 @@ export interface Order {
   // Always present regardless of emailType (see backend Order model comment).
   domain:                  string;
   emailType:               'random' | 'custom';
+  // Only present in the marketplace listing (see order.service.ts
+  // getMarketplaceOrders()) — the referral fee % already baked into the
+  // workerEarning shown, purely for transparency in the UI.
+  appliedReferralTaxRate?: number;
   credentials?: {
     email:    string;
     password: string;

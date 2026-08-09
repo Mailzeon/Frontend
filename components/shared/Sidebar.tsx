@@ -4,7 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, ShoppingBag, Wallet, Store, ClipboardList,
   Users, AlertTriangle, BarChart3, LogOut, Shield, Settings,
-  Undo2, X, User, Trophy
+  Undo2, X, User, Trophy, Gift
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
@@ -27,6 +27,7 @@ const workerNav: NavItem[] = [
   { href: '/worker/marketplace',  label: 'Marketplace',  Icon: Store },
   { href: '/worker/orders',       label: 'My Orders',    Icon: ClipboardList },
   { href: '/worker/wallet',       label: 'Earnings',     Icon: Wallet },
+  { href: '/worker/referral',     label: 'Refer & Earn', Icon: Gift },
   { href: '/worker/leaderboard',  label: 'Leaderboard',  Icon: Trophy },
   { href: '/worker/profile',      label: 'Profile',      Icon: User },
 ];
@@ -36,6 +37,7 @@ const adminNav: NavItem[] = [
   { href: '/admin/orders',       label: 'All Orders',   Icon: ClipboardList },
   { href: '/admin/users',        label: 'Users',        Icon: Users },
   { href: '/admin/wallet',       label: 'Wallet',       Icon: Wallet },
+  { href: '/admin/referrals',    label: 'Referrals',    Icon: Gift },
   { href: '/admin/withdrawals',  label: 'Withdrawals',  Icon: Wallet },
   { href: '/admin/refunds',      label: 'Refunds',      Icon: Undo2 },
   { href: '/admin/disputes',     label: 'Disputes',     Icon: AlertTriangle },

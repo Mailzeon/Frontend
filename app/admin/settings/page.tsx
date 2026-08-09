@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Save, IndianRupee, Clock, Timer, Percent, AlertTriangle, Trash2, PlayCircle, ShieldAlert } from 'lucide-react';
+import { Settings as SettingsIcon, Save, IndianRupee, Clock, Timer, Percent, AlertTriangle, Trash2, PlayCircle, ShieldAlert, Gift } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,6 +32,7 @@ const SETTING_META: Record<string, { label: string; icon: React.ElementType; suf
   strikeLockHours2:       { label: 'Strike 2 — Lock Duration', icon: ShieldAlert, suffix: 'hours', order: 6 },
   strikeLockHours3:       { label: 'Strike 3 — Lock Duration', icon: ShieldAlert, suffix: 'hours', order: 7 },
   strikeLockHours4Plus:   { label: 'Strike 4+ — Lock Duration', icon: ShieldAlert, suffix: 'hours', order: 8 },
+  referralTaxRate:        { label: 'Referral Fee', icon: Gift, suffix: '%', order: 9, max: 100 },
 };
 
 const KNOWN_KEYS = Object.keys(SETTING_META);
@@ -221,6 +222,15 @@ export default function AdminSettingsPage() {
           see every order in the marketplace during the lock, just can't accept any. At 4+ strikes,
           every admin gets notified so someone can decide whether to permanently suspend them from
           their profile page.
+        </p>
+      </div>
+
+      <div className="p-4 rounded-xl bg-purple-500/5 border border-purple-500/20">
+        <p className="text-sm text-purple-400">
+          🎁 Referral Fee is the percentage a referred worker's earning is reduced by on every order
+          they complete — paid straight to whoever referred them. Comes entirely out of the worker's
+          own cut, never the platform's commission, so raising or lowering it never affects platform
+          revenue either way.
         </p>
       </div>
 

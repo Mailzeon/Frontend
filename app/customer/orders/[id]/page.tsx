@@ -61,6 +61,7 @@ export default function CustomerOrderDetail() {
   const [submittingRefund, setSubmittingRefund] = useState(false);
   const [numberInput, setNumberInput] = useState('');
   const [sendingNumber, setSendingNumber] = useState(false);
+  const [requestingCode, setRequestingCode] = useState(false);
 
   // NEW: true while we're double-checking payment status right after the
   // customer is redirected back from Cashfree's checkout page.
@@ -112,6 +113,7 @@ export default function CustomerOrderDetail() {
     socket.on(SOCKET_EVENTS.ORDER_ACCEPTED,    refresh);
     socket.on(SOCKET_EVENTS.CREDENTIALS_READY, refresh);
     socket.on(SOCKET_EVENTS.NUMBER_CONFIRMED,  refresh);
+    socket.on(SOCKET_EVENTS.CODE_RECEIVED,     refresh);
     socket.on(SOCKET_EVENTS.ORDER_COMPLETED,   refresh);
     socket.on(SOCKET_EVENTS.ORDER_CANCELLED,   refresh);
 
@@ -119,6 +121,7 @@ export default function CustomerOrderDetail() {
       socket.off(SOCKET_EVENTS.ORDER_ACCEPTED,    refresh);
       socket.off(SOCKET_EVENTS.CREDENTIALS_READY, refresh);
       socket.off(SOCKET_EVENTS.NUMBER_CONFIRMED,  refresh);
+      socket.off(SOCKET_EVENTS.CODE_RECEIVED,     refresh);
       socket.off(SOCKET_EVENTS.ORDER_COMPLETED,   refresh);
       socket.off(SOCKET_EVENTS.ORDER_CANCELLED,   refresh);
     };
@@ -149,6 +152,23 @@ export default function CustomerOrderDetail() {
       toast.error(msg || 'Failed to send number.');
     } finally {
       setSendingNumber(false);
+    }
+  };
+
+  // For the case where Google doesn't show a "select a number" prompt at
+  // all and just texts/shows a plain code instead — an alternative to
+  // submitNumber() above, not a replacement. Worker sends the actual code
+  // back once requested.
+  const requestCode = async () => {
+    setRequestingCode(true);
+    try {
+      const { data } = await api.patch(`/orders/${id}/request-code`, {});
+      if (data.success) { toast.success('Code requested — worker has been notified.'); fetchOrder(); }
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      toast.error(msg || 'Failed to request code.');
+    } finally {
+      setRequestingCode(false);
     }
   };
 
@@ -417,7 +437,8 @@ export default function CustomerOrderDetail() {
             Were you able to log in with the details above?
           </p>
 
-          {isVerif && !order.verificationConfirmed && (
+          {/* 'number' method status */}
+          {isVerif && order.verificationMethod === 'number' && !order.verificationConfirmed && (
             <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/20 text-center space-y-1">
               <p className="text-xs text-gray-500">Number sent to worker</p>
               <p className="text-3xl font-bold text-blue-400 tracking-widest font-mono">
@@ -428,18 +449,38 @@ export default function CustomerOrderDetail() {
               </p>
             </div>
           )}
-
-          {isVerif && order.verificationConfirmed && (
+          {isVerif && order.verificationMethod === 'number' && order.verificationConfirmed && (
             <div className="p-4 rounded-xl bg-green-500/5 border border-green-500/20 text-center">
               <p className="text-sm text-green-400 font-medium">✓ Worker confirmed — try logging in now</p>
             </div>
           )}
 
+          {/* 'code' method status */}
+          {isVerif && order.verificationMethod === 'code' && !order.verificationCode && (
+            <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/20 text-center">
+              <p className="text-sm text-blue-400 animate-pulse-soft">
+                Code requested — waiting for the worker to send it…
+              </p>
+            </div>
+          )}
+          {isVerif && order.verificationMethod === 'code' && order.verificationCode && (
+            <div className="p-4 rounded-xl bg-green-500/5 border border-green-500/20 text-center space-y-1">
+              <p className="text-xs text-gray-500">Your verification code</p>
+              <p className="text-3xl font-bold text-green-400 tracking-widest font-mono">
+                {order.verificationCode}
+              </p>
+            </div>
+          )}
+
+          {/* Number entry — either flow, since a fresh number can be sent
+              any time (also covers "number expired, send a new one") */}
           <form onSubmit={submitNumber} className="space-y-2">
             <Label>
               {isCreds
                 ? "Google asking you to select a number on this screen? Type it here:"
-                : "Number expired, or a new one appeared? Send the new one:"}
+                : order.verificationMethod === 'number'
+                  ? "Number expired, or a new one appeared? Send the new one:"
+                  : "Or, did a number prompt show up instead? Send it here:"}
             </Label>
             <div className="flex gap-2">
               <Input
@@ -455,6 +496,32 @@ export default function CustomerOrderDetail() {
               </Button>
             </div>
           </form>
+
+          {/* Alternative: Google just gave a code instead of a number prompt */}
+          {(isCreds || (isVerif && order.verificationMethod !== 'code')) && (
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={requestCode}
+                disabled={requestingCode}
+                className="text-xs text-gray-500 hover:text-white underline underline-offset-2 disabled:opacity-50"
+              >
+                {requestingCode ? 'Requesting…' : "Google asking for a code instead of a number? Request one from the worker"}
+              </button>
+            </div>
+          )}
+          {isVerif && order.verificationMethod === 'code' && (
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={requestCode}
+                disabled={requestingCode}
+                className="text-xs text-gray-500 hover:text-white underline underline-offset-2 disabled:opacity-50"
+              >
+                {requestingCode ? 'Requesting…' : 'Code expired or never arrived? Request a new one'}
+              </button>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 gap-3">
             <Button

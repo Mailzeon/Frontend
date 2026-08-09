@@ -1,8 +1,8 @@
 'use client';
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Eye, EyeOff, User, Briefcase } from 'lucide-react';
+import { Eye, EyeOff, User, Briefcase, Gift } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,8 +14,9 @@ import { initSocket } from '@/lib/socket';
 import { cn } from '@/lib/utils';
 import { Footer } from '@/components/shared/Footer';
 
-export default function RegisterPage() {
+function RegisterContent() {
   const router  = useRouter();
+  const searchParams = useSearchParams();
   const setAuth = useAuthStore(s => s.setAuth);
   const { minimumOrderAmount, platformCommissionRate, fetchSettings } = useSettingsStore();
   const [name, setName]         = useState('');
@@ -25,6 +26,12 @@ export default function RegisterPage() {
   const [show, setShow]         = useState(false);
   const [loading, setLoading]   = useState(false);
 
+  // Referral codes are worker-only for now (see backend auth.service.ts) —
+  // a ?ref= link only ever comes from another worker sharing theirs, so
+  // defaulting the role picker to "Work & Earn" saves the new signup a step.
+  const referralCode = searchParams.get('ref')?.trim() || '';
+  useEffect(() => { if (referralCode) setRole('worker'); }, [referralCode]);
+
   useEffect(() => { fetchSettings(); }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -33,7 +40,10 @@ export default function RegisterPage() {
     if (password.length < 6) { toast.error('Password must be at least 6 characters.'); return; }
     setLoading(true);
     try {
-      const { data } = await api.post('/auth/register', { name: name.trim(), email: email.trim(), password, role });
+      const { data } = await api.post('/auth/register', {
+        name: name.trim(), email: email.trim(), password, role,
+        ...(referralCode ? { referralCode } : {}),
+      });
       if (!data.success) { toast.error(data.message); return; }
       const { user } = data.data;
       setAuth(user);
@@ -76,6 +86,14 @@ export default function RegisterPage() {
         </div>
 
         <div className="glass-card p-8">
+          {referralCode && (
+            <div className="flex items-center gap-2.5 p-3 rounded-xl bg-purple-500/10 border border-purple-500/20 mb-5">
+              <Gift className="w-4 h-4 text-purple-400 shrink-0" />
+              <p className="text-xs text-purple-300">
+                You're signing up with a worker's referral link.
+              </p>
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-1.5">
               <Label>I want to</Label>
@@ -134,5 +152,16 @@ export default function RegisterPage() {
 
       <Footer />
     </div>
+  );
+}
+
+// useSearchParams() (used above to read ?ref=...) opts the page out of
+// static generation unless wrapped in Suspense — see the same fix applied
+// earlier to app/customer/wallet/page.tsx.
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={null}>
+      <RegisterContent />
+    </Suspense>
   );
 }

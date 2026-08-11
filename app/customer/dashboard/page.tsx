@@ -1,52 +1,23 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { ShoppingBag, CheckCircle, Clock, AlertTriangle, Plus, Shuffle, Edit3, Check, IndianRupee, Phone } from 'lucide-react';
+import { ShoppingBag, CheckCircle, Clock, AlertTriangle, Plus } from 'lucide-react';
 import { StatCard } from '@/components/shared/StatCard';
 import { OrderStatusBadge } from '@/components/shared/OrderStatusBadge';
+import { CreateOrderModal } from '@/components/shared/CreateOrderModal';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
-import { shortId, timeAgo, formatCurrency, cn } from '@/lib/utils';
-import { EMAIL_DOMAINS } from '@/lib/emailDomains';
-import { openCashfreeCheckout } from '@/lib/cashfree';
-import { useAuthStore } from '@/store/authStore';
-import { useSettingsStore } from '@/store/settingsStore';
+import { shortId, timeAgo, formatCurrency } from '@/lib/utils';
 import { Order } from '@/types';
 import Link from 'next/link';
 
 export default function CustomerDashboard() {
-  const { user, updateUser } = useAuthStore();
-  const { minimumOrderAmount, platformCommissionRate, fetchSettings } = useSettingsStore();
   const [orders, setOrders]     = useState<Order[]>([]);
   const [loading, setLoading]   = useState(true);
-  const [creating, setCreating] = useState(false);
   const [showModal, setShowModal] = useState(false);
 
-  const [service, setService]     = useState('');
-  const [domain, setDomain]       = useState('');
-  const [emailType, setEmailType] = useState<'random' | 'custom'>('random');
-  const [customLocal, setCustomLocal] = useState('');
-  // NEW: customer sets their own order amount now (was a fixed admin price before)
-  const [amount, setAmount]       = useState('');
-  // NEW: only asked for if not already saved on the customer's profile
-  const [phone, setPhone]         = useState('');
-  // NEW: wallet credit (from a previous refund) that can be used to skip
-  // Cashfree entirely if it fully covers the order amount.
-  const [walletBalance, setWalletBalance] = useState(0);
-  const [useWalletCredit, setUseWalletCredit] = useState(false);
-
-  const fetchWallet = async () => {
-    try {
-      const { data } = await api.get('/wallet');
-      if (data.success) setWalletBalance(data.data.balance);
-    } catch { /* Non-critical — the order form still works without this */ }
-  };
-
-  const fetch = async () => {
+  const fetchOrders = async () => {
     try {
       const { data } = await api.get('/orders/my');
       if (data.success) setOrders(data.data);
@@ -54,11 +25,7 @@ export default function CustomerDashboard() {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { fetch(); fetchSettings(); fetchWallet(); }, []);
-
-  const canUseWalletCredit = walletBalance > 0 && Number(amount) > 0;
-  const walletAmountToApply = canUseWalletCredit ? Math.min(walletBalance, Number(amount) || 0) : 0;
-  const remainingToPay = Math.max(0, (Number(amount) || 0) - (useWalletCredit ? walletAmountToApply : 0));
+  useEffect(() => { fetchOrders(); }, []);
 
   const stats = {
     total:     orders.length,
@@ -66,71 +33,6 @@ export default function CustomerDashboard() {
     active:    orders.filter(o => !['completed','cancelled','payment_failed'].includes(o.status)).length,
     disputes:  orders.filter(o => o.status === 'under_review').length,
   };
-
-  const resetModal = () => {
-    setService(''); setDomain(''); setEmailType('random'); setCustomLocal('');
-    setAmount(''); setPhone(''); setUseWalletCredit(false);
-  };
-
-  const createOrder = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!service.trim()) { toast.error('Enter a service name.'); return; }
-    if (!domain) { toast.error('Select an email domain.'); return; }
-    if (emailType === 'custom' && !customLocal.trim()) { toast.error('Enter your custom email name.'); return; }
-    const numAmount = Number(amount);
-    if (!amount || isNaN(numAmount) || numAmount < minimumOrderAmount) {
-      toast.error(`Minimum order amount is ₹${minimumOrderAmount}.`);
-      return;
-    }
-    if (!user?.phone && !/^[6-9]\d{9}$/.test(phone)) { toast.error('Enter a valid 10-digit phone number.'); return; }
-
-    setCreating(true);
-    try {
-      const { data } = await api.post('/orders', {
-        serviceName: service,
-        domain,
-        emailType,
-        customLocalPart: emailType === 'custom' ? customLocal.trim() : undefined,
-        amount: numAmount,
-        ...(user?.phone ? {} : { phone }),
-        ...(canUseWalletCredit && useWalletCredit ? { useWalletCredit: true } : {}),
-      });
-
-      if (data.success) {
-        if (!user?.phone && phone) updateUser({ phone });
-        if (data.data.paidWithWallet) {
-          // Fully covered by wallet credit — no Cashfree redirect needed,
-          // the order is already live in the marketplace.
-          toast.success('Paid with wallet credit! Your order is live in the marketplace.');
-          setShowModal(false);
-          resetModal();
-          setCreating(false);
-          fetch();
-          fetchWallet();
-        } else {
-          if (data.data.walletAmountApplied > 0) {
-            toast.info(`${formatCurrency(data.data.walletAmountApplied)} wallet credit applied — complete the rest to publish your order.`);
-            fetchWallet();
-          } else {
-            toast.success('Redirecting to payment…');
-          }
-          // Order is created but NOT yet in the marketplace — it only becomes
-          // visible to workers once Cashfree confirms the payment succeeded.
-          await openCashfreeCheckout(data.data.paymentSessionId);
-          // openCashfreeCheckout navigates the browser away to Cashfree's
-          // hosted page — code after this line does not run until the
-          // customer is redirected back (handled on the order detail page).
-        }
-      }
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to create order.');
-      setCreating(false);
-    }
-  };
-
-  const previewEmail = domain && emailType === 'custom' && customLocal.trim()
-    ? `${customLocal.trim().toLowerCase()}@${domain}`
-    : null;
 
   return (
     <div className="space-y-6">
@@ -187,162 +89,7 @@ export default function CustomerDashboard() {
         )}
       </div>
 
-      {/* Create order modal */}
-      <Dialog open={showModal} onOpenChange={(v) => { setShowModal(v); if (!v) resetModal(); }}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Place New Order</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={createOrder} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>Service name / description</Label>
-              <Input placeholder="e.g. Instagram login verification" value={service} onChange={e => setService(e.target.value)} autoFocus />
-            </div>
-
-            {/* NEW: customer sets their own order amount */}
-            <div className="space-y-1.5">
-              <Label className="flex items-center gap-1.5">
-                <IndianRupee className="w-3.5 h-3.5" /> Order amount
-              </Label>
-              <Input
-                type="number"
-                min={minimumOrderAmount}
-                placeholder={`Minimum ₹${minimumOrderAmount}`}
-                value={amount}
-                onChange={e => setAmount(e.target.value)}
-              />
-              <p className="text-xs text-gray-500">
-                {100 - platformCommissionRate}% goes to the worker who completes your order, {platformCommissionRate}% is the platform fee.
-              </p>
-            </div>
-
-            {walletBalance > 0 && (
-              <div className={cn(
-                'p-3 rounded-xl border flex items-center justify-between gap-3',
-                'border-green-500/30 bg-green-500/5'
-              )}>
-                <div>
-                  <p className="text-sm text-white font-medium">Wallet credit: {formatCurrency(walletBalance)}</p>
-                  <p className="text-xs text-gray-500">
-                    {walletAmountToApply >= (Number(amount) || 0) && Number(amount) > 0
-                      ? 'Covers this order fully — no payment needed!'
-                      : `Apply ${formatCurrency(walletAmountToApply)} — pay ${formatCurrency(remainingToPay)} via Cashfree for the rest.`}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setUseWalletCredit(v => !v)}
-                  className={cn(
-                    'shrink-0 w-11 h-6 rounded-full transition-colors relative',
-                    useWalletCredit ? 'bg-green-500' : 'bg-white/[0.12]'
-                  )}
-                >
-                  <span className={cn(
-                    'absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform',
-                    useWalletCredit ? 'translate-x-[22px]' : 'translate-x-0.5'
-                  )} />
-                </button>
-              </div>
-            )}
-
-            <div className="space-y-1.5">
-              <Label>Email domain</Label>
-              <div className="grid grid-cols-3 gap-2">
-                {EMAIL_DOMAINS.map(d => (
-                  <button
-                    key={d}
-                    type="button"
-                    onClick={() => setDomain(d)}
-                    className={cn(
-                      'relative flex items-center justify-center gap-1 px-2 py-2 rounded-lg border text-xs font-medium transition-all truncate',
-                      domain === d
-                        ? 'border-purple-500 bg-purple-600/10 text-white'
-                        : 'border-white/[0.06] text-gray-400 hover:border-white/[0.15] hover:text-gray-200'
-                    )}
-                  >
-                    {domain === d && <Check className="w-3 h-3 text-purple-400 shrink-0" />}
-                    <span className="truncate">@{d}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Email type</Label>
-              <div className="flex gap-3">
-                <button type="button" onClick={() => setEmailType('random')}
-                  className={cn(
-                    'flex-1 flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all',
-                    emailType === 'random' ? 'border-purple-500 bg-purple-600/10 text-white' : 'border-white/[0.06] text-gray-400 hover:border-white/[0.15]'
-                  )}>
-                  <Shuffle className={cn('w-5 h-5', emailType === 'random' ? 'text-purple-400' : 'text-gray-500')} />
-                  <span className="font-medium text-sm">Random</span>
-                  <span className="text-xs text-gray-500 text-center">Auto-generated</span>
-                </button>
-                <button type="button" onClick={() => setEmailType('custom')}
-                  className={cn(
-                    'flex-1 flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all',
-                    emailType === 'custom' ? 'border-purple-500 bg-purple-600/10 text-white' : 'border-white/[0.06] text-gray-400 hover:border-white/[0.15]'
-                  )}>
-                  <Edit3 className={cn('w-5 h-5', emailType === 'custom' ? 'text-purple-400' : 'text-gray-500')} />
-                  <span className="font-medium text-sm">Custom</span>
-                  <span className="text-xs text-gray-500 text-center">You choose the name</span>
-                </button>
-              </div>
-            </div>
-
-            {emailType === 'custom' && (
-              <div className="space-y-1.5">
-                <Label>Custom email name</Label>
-                <div className="flex items-center gap-2">
-                  <Input placeholder="yourtext" value={customLocal} onChange={e => setCustomLocal(e.target.value)} className="flex-1" />
-                  <span className="text-gray-500 text-sm whitespace-nowrap">@{domain || '...'}</span>
-                </div>
-              </div>
-            )}
-
-            {previewEmail && (
-              <div className="p-3 rounded-xl bg-white/[0.05] text-sm">
-                <span className="text-gray-500">Email to be created: </span>
-                <span className="text-white font-mono break-all">{previewEmail}</span>
-              </div>
-            )}
-            {emailType === 'random' && domain && (
-              <p className="text-xs text-gray-500">
-                Any @{domain} account works — the worker will provide one (new or already made) and share its login with you.
-              </p>
-            )}
-
-            {/* NEW: phone — only asked once, then saved to profile */}
-            {!user?.phone && (
-              <div className="space-y-1.5">
-                <Label className="flex items-center gap-1.5">
-                  <Phone className="w-3.5 h-3.5" /> Phone number
-                </Label>
-                <Input
-                  type="tel"
-                  placeholder="9876543210"
-                  value={phone}
-                  onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                  maxLength={10}
-                />
-                <p className="text-xs text-gray-500">Required by our payment partner. Saved to your profile for next time.</p>
-              </div>
-            )}
-
-            <div className="flex gap-3 justify-end pt-1">
-              <Button type="button" variant="outline" onClick={() => setShowModal(false)}>Cancel</Button>
-              <Button type="submit" loading={creating}>
-                {useWalletCredit && canUseWalletCredit
-                  ? remainingToPay === 0
-                    ? 'Pay with Wallet Credit & Place Order'
-                    : `Pay ${formatCurrency(remainingToPay)} (Wallet Credit Applied) & Place Order`
-                  : amount ? `Pay ${formatCurrency(Number(amount) || 0)} & Place Order` : 'Continue to Payment'}
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <CreateOrderModal open={showModal} onOpenChange={setShowModal} onOrderCreated={fetchOrders} />
     </div>
   );
 }

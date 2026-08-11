@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { ShoppingBag, Plus, Shuffle, Edit3, Check, IndianRupee, Phone } from 'lucide-react';
+import { ShoppingBag, Plus, Shuffle, Edit3, Check, IndianRupee, Phone, Loader2, XCircle, AlertTriangle } from 'lucide-react';
 import { OrderStatusBadge } from '@/components/shared/OrderStatusBadge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -31,6 +31,12 @@ export default function CustomerOrdersPage() {
   const [customLocal, setCustomLocal] = useState('');
   const [amount, setAmount]       = useState('');
   const [phone, setPhone]         = useState('');
+  // NEW: pre-payment "Check" button state for custom emails. `checkedFor`
+  // remembers exactly which domain+name combo the result belongs to, so if
+  // the customer edits the name after checking, the stale ✓/✗ badge is
+  // invalidated automatically instead of misleadingly staying green.
+  const [checkStatus, setCheckStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'unverified'>('idle');
+  const [checkedFor, setCheckedFor] = useState<string | null>(null);
   // NEW: wallet credit (from a previous refund) that can be used to skip
   // Cashfree entirely if it fully covers the order amount.
   const [walletBalance, setWalletBalance] = useState(0);
@@ -60,6 +66,27 @@ export default function CustomerOrdersPage() {
   const resetModal = () => {
     setService(''); setDomain(''); setEmailType('random'); setCustomLocal('');
     setAmount(''); setPhone(''); setUseWalletCredit(false);
+    setCheckStatus('idle'); setCheckedFor(null);
+  };
+
+  const currentCombo = domain && customLocal.trim() ? `${customLocal.trim().toLowerCase()}@${domain}` : null;
+  // True once a check has actually run for the EXACT combo currently in the
+  // inputs — editing the name/domain after a check silently un-verifies it.
+  const isCheckedForCurrent = checkedFor !== null && checkedFor === currentCombo;
+
+  const checkEmail = async () => {
+    if (!domain || !customLocal.trim()) { toast.error('Select a domain and enter a name first.'); return; }
+    setCheckStatus('checking');
+    try {
+      const { data } = await api.post('/orders/check-email', { domain, customLocalPart: customLocal.trim() });
+      setCheckedFor(currentCombo);
+      if (!data.data.checked) setCheckStatus('unverified');
+      else setCheckStatus(data.data.available ? 'available' : 'taken');
+    } catch (err: any) {
+      setCheckedFor(null);
+      setCheckStatus('idle');
+      toast.error(err.response?.data?.message || 'Could not check right now — try again.');
+    }
   };
 
   const createOrder = async (e: React.FormEvent) => {
@@ -67,6 +94,12 @@ export default function CustomerOrdersPage() {
     if (!service.trim()) { toast.error('Enter a service name.'); return; }
     if (!domain) { toast.error('Select an email domain.'); return; }
     if (emailType === 'custom' && !customLocal.trim()) { toast.error('Enter your custom email name.'); return; }
+    if (emailType === 'custom' && (!isCheckedForCurrent || checkStatus === 'taken')) {
+      toast.error(checkStatus === 'taken'
+        ? 'This email is already taken — choose a different name.'
+        : 'Click "Check" to verify this email is available before paying.');
+      return;
+    }
     const numAmount = Number(amount);
     if (!amount || isNaN(numAmount) || numAmount < minimumOrderAmount) {
       toast.error(`Minimum order amount is ₹${minimumOrderAmount}.`);
@@ -271,9 +304,44 @@ export default function CustomerOrdersPage() {
               <div className="space-y-1.5">
                 <Label>Custom email name</Label>
                 <div className="flex items-center gap-2">
-                  <Input placeholder="yourtext" value={customLocal} onChange={e => setCustomLocal(e.target.value)} className="flex-1" />
+                  <Input
+                    placeholder="yourtext"
+                    value={customLocal}
+                    onChange={e => {
+                      setCustomLocal(e.target.value);
+                      // Editing after a check invalidates that result — the
+                      // badge disappears until they hit Check again.
+                      if (checkStatus !== 'checking') setCheckStatus('idle');
+                    }}
+                    className="flex-1"
+                  />
                   <span className="text-gray-500 text-sm whitespace-nowrap">@{domain || '...'}</span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={!domain || !customLocal.trim() || checkStatus === 'checking'}
+                    onClick={checkEmail}
+                  >
+                    {checkStatus === 'checking' ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Check'}
+                  </Button>
                 </div>
+
+                {isCheckedForCurrent && checkStatus === 'available' && (
+                  <p className="text-xs text-green-400 flex items-center gap-1">
+                    <Check className="w-3.5 h-3.5" /> Available — you're good to pay.
+                  </p>
+                )}
+                {isCheckedForCurrent && checkStatus === 'taken' && (
+                  <p className="text-xs text-red-400 flex items-center gap-1">
+                    <XCircle className="w-3.5 h-3.5" /> Already taken — try a different name.
+                  </p>
+                )}
+                {isCheckedForCurrent && checkStatus === 'unverified' && (
+                  <p className="text-xs text-yellow-500 flex items-center gap-1">
+                    <AlertTriangle className="w-3.5 h-3.5" /> Couldn't verify right now — you can still continue.
+                  </p>
+                )}
               </div>
             )}
 
@@ -307,7 +375,11 @@ export default function CustomerOrdersPage() {
 
             <div className="flex gap-3 justify-end pt-1">
               <Button type="button" variant="outline" onClick={() => setShowModal(false)}>Cancel</Button>
-              <Button type="submit" loading={creating}>
+              <Button
+                type="submit"
+                loading={creating}
+                disabled={emailType === 'custom' && (!isCheckedForCurrent || checkStatus === 'taken')}
+              >
                 {useWalletCredit && canUseWalletCredit
                   ? remainingToPay === 0
                     ? 'Pay with Wallet Credit & Place Order'

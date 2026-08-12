@@ -35,7 +35,16 @@ export default function AdminUsersPage() {
       const { data } = await api.patch(`/admin/users/${userId}/approve`, { isApproved });
       if (data.success) {
         toast.success(isApproved ? 'Worker approved!' : 'Worker suspended.');
-        setUsers(p => p.map(u => u._id === userId ? { ...u, isApproved } : u));
+        // BUG FIX: this used to merge only `{ isApproved }` onto the old
+        // local object, which silently kept whatever stale
+        // `wasEverApproved` value was fetched at page load. That field
+        // only actually flips true->DB at the exact moment a worker gets
+        // suspended for the first time (see backend admin.routes.ts) — so
+        // the fresh value the backend just computed and returned in
+        // `data.data` was being thrown away, and the Pending/Suspended
+        // status only became correct after a manual page refresh. Now we
+        // just take the full updated user object the backend gives back.
+        setUsers(p => p.map(u => u._id === userId ? { ...u, ...data.data } : u));
       }
     } catch (err: any) { toast.error(err.response?.data?.message || 'Failed.'); }
     finally { setActing(null); }

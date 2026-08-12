@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { OrderStatusBadge } from '@/components/shared/OrderStatusBadge';
 import { toast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
@@ -18,6 +19,20 @@ function copyText(text: string) {
   navigator.clipboard.writeText(text);
   toast.success('Copied!');
 }
+
+// Quick one-line reasons — picking one just fills the Admin Note field, so
+// the admin can still edit it further before submitting. Saves having to
+// type the same handful of explanations out by hand every time.
+const CUSTOMER_SIDE_REASONS = [
+  'Worker never submitted working credentials.',
+  "Password/login didn't work as the worker claimed.",
+  'Worker appears to be at fault based on the evidence provided.',
+];
+const WORKER_SIDE_REASONS = [
+  'Credentials worked fine — likely a customer-side error.',
+  "No evidence supporting the customer's claim.",
+  'Customer appears to have entered the password incorrectly.',
+];
 
 const REASON_LABELS: Record<string, string> = {
   wrong_password: 'Wrong Password', unable_to_login: 'Unable to Login',
@@ -41,7 +56,11 @@ export default function AdminDisputesPage() {
   const [detail, setDetail]     = useState<any>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [note, setNote]         = useState('');
-  const [acting, setActing]     = useState(false);
+  // Was a single shared boolean before — both "Side with Customer" and
+  // "Side with Worker" buttons showed a spinner no matter which one was
+  // actually clicked. Now tracks WHICH outcome is in flight, so only that
+  // button animates.
+  const [acting, setActing]     = useState<'resolved' | 'rejected' | null>(null);
 
   const fetchDisputes = async () => {
     try {
@@ -64,7 +83,7 @@ export default function AdminDisputesPage() {
 
   const resolve = async (status: 'resolved' | 'rejected') => {
     if (!selected) return;
-    setActing(true);
+    setActing(status);
     try {
       const { data } = await api.patch(`/admin/disputes/${selected._id}`, { status, adminNote: note });
       if (data.success) {
@@ -77,7 +96,7 @@ export default function AdminDisputesPage() {
         setSelected(null); setDetail(null); setNote('');
       }
     } catch (err: any) { toast.error(err.response?.data?.message || 'Failed.'); }
-    finally { setActing(false); }
+    finally { setActing(null); }
   };
 
   return (
@@ -247,6 +266,24 @@ export default function AdminDisputesPage() {
               </div>
 
               <div className="space-y-1.5">
+                <Label>Quick reason (optional)</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <Select onValueChange={(v) => setNote(v)}>
+                    <SelectTrigger><SelectValue placeholder="Reason to side with customer..." /></SelectTrigger>
+                    <SelectContent>
+                      {CUSTOMER_SIDE_REASONS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Select onValueChange={(v) => setNote(v)}>
+                    <SelectTrigger><SelectValue placeholder="Reason to side with worker..." /></SelectTrigger>
+                    <SelectContent>
+                      {WORKER_SIDE_REASONS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
                 <Label>Admin Note (optional)</Label>
                 <Input placeholder="Explanation for your decision..." value={note} onChange={e => setNote(e.target.value)} />
               </div>
@@ -254,7 +291,8 @@ export default function AdminDisputesPage() {
               <div className="grid grid-cols-1 gap-2">
                 <Button
                   variant="destructive"
-                  loading={acting}
+                  loading={acting === 'resolved'}
+                  disabled={acting === 'rejected'}
                   onClick={() => resolve('resolved')}
                   className="justify-start"
                 >
@@ -263,7 +301,8 @@ export default function AdminDisputesPage() {
                 </Button>
                 <Button
                   variant="success"
-                  loading={acting}
+                  loading={acting === 'rejected'}
+                  disabled={acting === 'resolved'}
                   onClick={() => resolve('rejected')}
                   className="justify-start"
                 >
@@ -273,7 +312,7 @@ export default function AdminDisputesPage() {
               </div>
 
               <div className="flex justify-end">
-                <Button variant="outline" onClick={() => { setSelected(null); setDetail(null); }}>Cancel</Button>
+                <Button variant="outline" disabled={!!acting} onClick={() => { setSelected(null); setDetail(null); }}>Cancel</Button>
               </div>
             </div>
           )}

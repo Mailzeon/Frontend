@@ -1,11 +1,16 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Wallet } from 'lucide-react';
+import { Wallet, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/utils';
+
+function copyText(text: string) {
+  navigator.clipboard.writeText(text);
+  toast.success('Copied!');
+}
 
 const STATUS_COLOR: Record<string, string> = {
   pending: 'text-yellow-400', approved: 'text-blue-400',
@@ -75,9 +80,21 @@ export default function AdminWithdrawalsPage() {
                 {/* Payment details */}
                 <div className="p-3 rounded-xl bg-white/[0.05] text-xs space-y-1">
                   <p className="text-gray-400"><span className="text-gray-500">Method:</span> {r.paymentMethod.toUpperCase()}</p>
-                  {r.upiId && <p className="text-gray-400"><span className="text-gray-500">UPI ID:</span> {r.upiId}</p>}
+                  {r.upiId && (
+                    <p className="text-gray-400 flex items-center gap-1.5">
+                      <span className="text-gray-500">UPI ID:</span> {r.upiId}
+                      <button onClick={() => copyText(r.upiId)} className="text-gray-500 hover:text-white" title="Copy UPI ID">
+                        <Copy className="w-3 h-3" />
+                      </button>
+                    </p>
+                  )}
                   {r.bankDetails?.accountNumber && <>
-                    <p className="text-gray-400"><span className="text-gray-500">Account:</span> {r.bankDetails.accountHolder} — {r.bankDetails.accountNumber}</p>
+                    <p className="text-gray-400 flex items-center gap-1.5">
+                      <span className="text-gray-500">Account:</span> {r.bankDetails.accountHolder} — {r.bankDetails.accountNumber}
+                      <button onClick={() => copyText(r.bankDetails.accountNumber)} className="text-gray-500 hover:text-white" title="Copy account number">
+                        <Copy className="w-3 h-3" />
+                      </button>
+                    </p>
                     <p className="text-gray-400"><span className="text-gray-500">IFSC:</span> {r.bankDetails.ifscCode} · {r.bankDetails.bankName}</p>
                   </>}
                 </div>

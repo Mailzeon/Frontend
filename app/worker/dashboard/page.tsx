@@ -22,7 +22,7 @@ const LEVEL_COLORS: Record<string, string> = {
 
 export default function WorkerDashboard() {
   const { user } = useAuthStore();
-  const { isLocked, strikeCount, formattedTime } = useLockStatus();
+  const { isLocked, isPermanent, strikeCount, formattedTime } = useLockStatus();
   const [orders,   setOrders]   = useState<Order[]>([]);
   const [wallet,   setWallet]   = useState<any>(null);
   const [loading,  setLoading]  = useState(true);
@@ -103,15 +103,28 @@ export default function WorkerDashboard() {
           in the marketplace stays visible; only accepting is blocked. */}
       {isLocked && (
         <div className="p-4 rounded-xl bg-red-500/5 border border-red-500/20 space-y-1">
-          <div className="flex items-center gap-2 text-red-400 font-semibold text-sm">
-            <Lock className="w-4 h-4" /> Account Locked — Strike {strikeCount}
-          </div>
-          <p className="text-sm text-red-300">
-            A dispute against you was resolved in the customer's favor. You can't accept new orders
-            for <span className="font-mono font-semibold">{formattedTime}</span>. Make sure every
-            account you deliver is genuine and working — repeated strikes lock you out for longer
-            each time.
-          </p>
+          {isPermanent ? (
+            <>
+              <div className="flex items-center gap-2 text-red-400 font-semibold text-sm">
+                <Lock className="w-4 h-4" /> Account Permanently Banned
+              </div>
+              <p className="text-sm text-red-300">
+                Your account can no longer accept orders. Contact support if you believe this is a mistake.
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-2 text-red-400 font-semibold text-sm">
+                <Lock className="w-4 h-4" /> Account Locked — Strike {strikeCount}
+              </div>
+              <p className="text-sm text-red-300">
+                A dispute against you was resolved in the customer's favor. You can't accept new orders
+                for <span className="font-mono font-semibold">{formattedTime}</span>. Make sure every
+                account you deliver is genuine and working — repeated strikes lock you out for longer
+                each time.
+              </p>
+            </>
+          )}
         </div>
       )}
 

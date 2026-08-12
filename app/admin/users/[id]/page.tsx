@@ -146,8 +146,12 @@ export default function AdminUserDetailPage() {
               </span>
             )}
             {isWorker && (
-              <span className={user.isApproved ? 'text-green-400 text-xs' : 'text-yellow-400 text-xs'}>
-                {user.isApproved ? '✓ Approved' : '⏳ Pending approval'}
+              <span className={
+                user.isApproved ? 'text-green-400 text-xs'
+                : user.wasEverApproved ? 'text-red-400 text-xs'
+                : 'text-yellow-400 text-xs'
+              }>
+                {user.isApproved ? '✓ Approved' : user.wasEverApproved ? '⛔ Suspended' : '⏳ Pending approval'}
               </span>
             )}
             {isWorker && user.isOnline && <span className="w-2 h-2 rounded-full bg-green-400" title="Online" />}

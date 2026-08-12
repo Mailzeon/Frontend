@@ -42,12 +42,18 @@ export function useLockStatus() {
 
   const lockedUntilMs = user?.lockedUntil ? new Date(user.lockedUntil).getTime() : 0;
   const isLocked = lockedUntilMs > now;
+  // Mirrors backend utils/permanentLock.ts's PERMANENT_LOCK_DATE convention
+  // (year 9999) — without this, a permanently banned worker saw a
+  // nonsensical countdown like "69895344:00:00" instead of a clear
+  // "permanently banned" message, since formattedTime just naively counted
+  // down the raw milliseconds remaining until that far-future date.
+  const isPermanent = isLocked && new Date(lockedUntilMs).getFullYear() > new Date().getFullYear() + 50;
 
   useEffect(() => {
-    if (!isLocked) return;
+    if (!isLocked || isPermanent) return;
     const interval = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(interval);
-  }, [isLocked]);
+  }, [isLocked, isPermanent]);
 
   const msRemaining = Math.max(0, lockedUntilMs - now);
   const totalSeconds = Math.floor(msRemaining / 1000);
@@ -57,7 +63,8 @@ export function useLockStatus() {
 
   return {
     isLocked,
+    isPermanent,
     strikeCount: user?.strikeCount ?? 0,
-    formattedTime: `${hh}:${mm}:${ss}`,
+    formattedTime: isPermanent ? '' : `${hh}:${mm}:${ss}`,
   };
 }

@@ -120,6 +120,14 @@ export default function AdminUsersPage() {
                           Deleted
                         </span>
                       )}
+                      {tab === 'worker' && u.ipRiskFlag?.isRisky && (
+                        <span
+                          className="text-[10px] font-semibold text-yellow-400 px-1.5 py-0.5 rounded bg-yellow-500/10 border border-yellow-500/20 shrink-0"
+                          title={`Signed up via ${u.ipRiskFlag.reasons?.join(', ') || 'VPN/Proxy'} — not necessarily a problem, just worth a look.`}
+                        >
+                          ⚠️ VPN
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-gray-400">{u.email}</td>

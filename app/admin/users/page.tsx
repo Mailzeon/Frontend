@@ -46,6 +46,13 @@ export default function AdminUsersPage() {
     u.email.toLowerCase().includes(search.toLowerCase())
   );
 
+  // Three real states now instead of just isApproved true/false — lets the
+  // list (and the action button) tell a brand-new worker apart from one an
+  // admin deliberately suspended, instead of showing "Pending" + "Approve"
+  // for both.
+  const workerStatus = (u: any): 'pending' | 'approved' | 'suspended' =>
+    u.isApproved ? 'approved' : u.wasEverApproved ? 'suspended' : 'pending';
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -85,7 +92,7 @@ export default function AdminUsersPage() {
           <table className="w-full text-sm min-w-[800px]">
             <thead>
               <tr className="border-b border-white/[0.06]">
-                {['Name','Email', tab === 'worker' ? 'Level' : 'Joined', 'Status', 'App', 'Actions'].map(h => (
+                {['Name','Email', ...(tab === 'worker' ? ['Level', 'Joined'] : ['Joined']), 'Status', 'App', 'Actions'].map(h => (
                   <th key={h} className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-4 py-3">{h}</th>
                 ))}
               </tr>
@@ -107,19 +114,19 @@ export default function AdminUsersPage() {
                     </div>
                   </td>
                   <td className="px-4 py-3 text-gray-400">{u.email}</td>
-                  <td className="px-4 py-3">
-                    {tab === 'worker'
-                      ? <span className={`font-semibold capitalize ${LEVEL_COLOR[u.level ?? 'bronze']}`}>{u.level ?? 'bronze'}</span>
-                      : <span className="text-gray-400">{formatDate(u.createdAt)}</span>
-                    }
-                  </td>
+                  {tab === 'worker' && (
+                    <td className="px-4 py-3">
+                      <span className={`font-semibold capitalize ${LEVEL_COLOR[u.level ?? 'bronze']}`}>{u.level ?? 'bronze'}</span>
+                    </td>
+                  )}
+                  <td className="px-4 py-3 text-gray-400">{formatDate(u.createdAt)}</td>
                   <td className="px-4 py-3">
                     {tab === 'worker' ? (
                       <div className="flex items-center gap-1.5">
                         {u.isOnline && <span className="w-2 h-2 rounded-full bg-green-400" title="Online" />}
-                        <span className={u.isApproved ? 'text-green-400 text-xs' : 'text-yellow-400 text-xs'}>
-                          {u.isApproved ? '✓ Approved' : '⏳ Pending'}
-                        </span>
+                        {workerStatus(u) === 'approved' && <span className="text-green-400 text-xs">✓ Approved</span>}
+                        {workerStatus(u) === 'pending' && <span className="text-yellow-400 text-xs">⏳ Pending</span>}
+                        {workerStatus(u) === 'suspended' && <span className="text-red-400 text-xs">⛔ Suspended</span>}
                       </div>
                     ) : (
                       <span className="text-green-400 text-xs">Active</span>
@@ -137,10 +144,11 @@ export default function AdminUsersPage() {
                   {tab === 'worker' && (
                     <td className="px-4 py-3">
                       <div className="flex gap-2">
-                        {!u.isApproved ? (
+                        {workerStatus(u) !== 'approved' ? (
                           <Button size="sm" variant="success" loading={acting === u._id}
                             onClick={() => toggleApproval(u._id, true)}>
-                            <CheckCircle className="w-3.5 h-3.5 mr-1" /> Approve
+                            <CheckCircle className="w-3.5 h-3.5 mr-1" />
+                            {workerStatus(u) === 'suspended' ? 'Reactivate' : 'Approve'}
                           </Button>
                         ) : (
                           <Button size="sm" variant="outline" loading={acting === u._id}

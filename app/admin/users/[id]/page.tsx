@@ -18,6 +18,13 @@ import { OrderStatus } from '@/types';
 
 const LEVEL_COLOR: Record<string, string> = { bronze: 'text-amber-500', silver: 'text-gray-300', gold: 'text-yellow-400' };
 
+// Mirrors backend utils/permanentLock.ts's PERMANENT_LOCK_DATE convention
+// (year 9999) — any lockedUntil more than ~50 years out is a permanent
+// ban, not a real countdown, so show it as such instead of a giant
+// nonsensical date/duration.
+const isPermanentLockDate = (date: string | Date) =>
+  new Date(date).getFullYear() > new Date().getFullYear() + 50;
+
 export default function AdminUserDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -165,7 +172,7 @@ export default function AdminUserDetailPage() {
               )}
               {user.lockedUntil && new Date(user.lockedUntil) > new Date() && (
                 <span className="text-xs font-medium text-red-400 flex items-center gap-1 px-2 py-0.5 rounded bg-red-500/10 border border-red-500/20">
-                  🔒 Locked until {formatDate(user.lockedUntil)}
+                  {isPermanentLockDate(user.lockedUntil) ? '⛔ Permanently Banned' : `🔒 Locked until ${formatDate(user.lockedUntil)}`}
                 </span>
               )}
             </div>

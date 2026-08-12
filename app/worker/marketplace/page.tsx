@@ -16,7 +16,7 @@ import { Lock } from 'lucide-react';
 
 export default function WorkerMarketplace() {
   const { user } = useAuthStore();
-  const { isLocked, strikeCount, formattedTime } = useLockStatus();
+  const { isLocked, isPermanent, strikeCount, formattedTime } = useLockStatus();
   const { orderTimerMinutes, fetchSettings } = useSettingsStore();
   const router = useRouter();
   const [orders, setOrders]       = useState<Order[]>([]);
@@ -44,7 +44,10 @@ export default function WorkerMarketplace() {
 
   const accept = async (orderId: string) => {
     if (!user?.isApproved) { toast.error('Your account is pending admin approval.'); return; }
-    if (isLocked) { toast.error(`Your account is locked for ${formattedTime} due to a dispute strike.`); return; }
+    if (isLocked) {
+      toast.error(isPermanent ? 'Your account has been permanently banned.' : `Your account is locked for ${formattedTime} due to a dispute strike.`);
+      return;
+    }
     setAccepting(orderId);
     try {
       const { data } = await api.patch(`/orders/${orderId}/accept`);
@@ -81,13 +84,26 @@ export default function WorkerMarketplace() {
           accepting is blocked (see the accept() guard + disabled buttons). */}
       {isLocked && (
         <div className="p-4 rounded-xl bg-red-500/5 border border-red-500/20 space-y-1">
-          <div className="flex items-center gap-2 text-red-400 font-semibold text-sm">
-            <Lock className="w-4 h-4" /> Account Locked — Strike {strikeCount}
-          </div>
-          <p className="text-sm text-red-300">
-            You can browse, but can't accept any order for <span className="font-mono font-semibold">{formattedTime}</span> due
-            to a dispute resolved against you.
-          </p>
+          {isPermanent ? (
+            <>
+              <div className="flex items-center gap-2 text-red-400 font-semibold text-sm">
+                <Lock className="w-4 h-4" /> Account Permanently Banned
+              </div>
+              <p className="text-sm text-red-300">
+                You can browse, but can no longer accept any orders. Contact support if you believe this is a mistake.
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-2 text-red-400 font-semibold text-sm">
+                <Lock className="w-4 h-4" /> Account Locked — Strike {strikeCount}
+              </div>
+              <p className="text-sm text-red-300">
+                You can browse, but can't accept any order for <span className="font-mono font-semibold">{formattedTime}</span> due
+                to a dispute resolved against you.
+              </p>
+            </>
+          )}
         </div>
       )}
 

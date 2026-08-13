@@ -42,7 +42,6 @@ export function CreateOrderModal({ open, onOpenChange, onOrderCreated }: CreateO
   const [emailType, setEmailType] = useState<'random' | 'custom'>('random');
   const [customLocal, setCustomLocal] = useState('');
   const [amount, setAmount]       = useState('');
-  const [phone, setPhone]         = useState('');
   const [walletBalance, setWalletBalance] = useState(0);
   const [useWalletCredit, setUseWalletCredit] = useState(false);
 
@@ -83,7 +82,7 @@ export function CreateOrderModal({ open, onOpenChange, onOrderCreated }: CreateO
 
   const resetModal = () => {
     setService(''); setDomain(''); setEmailType('random'); setCustomLocal('');
-    setAmount(''); setPhone(''); setUseWalletCredit(false);
+    setAmount(''); setUseWalletCredit(false);
     setCheckStatus('idle'); setCheckedFor(null);
   };
 
@@ -121,7 +120,14 @@ export function CreateOrderModal({ open, onOpenChange, onOrderCreated }: CreateO
       toast.error(`Minimum order amount is ₹${minimumOrderAmount}.`);
       return;
     }
-    if (!user?.phone && !/^[6-9]\d{9}$/.test(phone)) { toast.error('Enter a valid 10-digit phone number.'); return; }
+    // Phone is now mandatory + verified at registration/profile level (see
+    // ProfilePage.tsx) — no longer collected here. An existing customer
+    // from before this was required gets stopped with a clear message
+    // instead of a phone input field.
+    if (!user?.phoneVerified) {
+      toast.error('Please verify your phone number in your profile before placing an order.');
+      return;
+    }
 
     setCreating(true);
     try {
@@ -131,12 +137,10 @@ export function CreateOrderModal({ open, onOpenChange, onOrderCreated }: CreateO
         emailType,
         customLocalPart: emailType === 'custom' ? customLocal.trim() : undefined,
         amount: numAmount,
-        ...(user?.phone ? {} : { phone }),
         ...(canUseWalletCredit && useWalletCredit ? { useWalletCredit: true } : {}),
       });
 
       if (data.success) {
-        if (!user?.phone && phone) updateUser({ phone });
         if (data.data.paidWithWallet) {
           // Fully covered by wallet credit — no Cashfree redirect needed,
           // the order is already live in the marketplace.
@@ -326,19 +330,13 @@ export function CreateOrderModal({ open, onOpenChange, onOrderCreated }: CreateO
             </p>
           )}
 
-          {!user?.phone && (
-            <div className="space-y-1.5">
-              <Label className="flex items-center gap-1.5">
-                <Phone className="w-3.5 h-3.5" /> Phone number
-              </Label>
-              <Input
-                type="tel"
-                placeholder="9876543210"
-                value={phone}
-                onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                maxLength={10}
-              />
-              <p className="text-xs text-gray-500">Required by our payment partner. Saved to your profile for next time.</p>
+          {!user?.phoneVerified && (
+            <div className="p-3 rounded-xl bg-yellow-500/5 border border-yellow-500/20 flex items-start gap-2.5">
+              <Phone className="w-4 h-4 text-yellow-400 shrink-0 mt-0.5" />
+              <p className="text-xs text-yellow-400">
+                You need a verified phone number to place an order.{' '}
+                <a href={`/${user?.role}/profile`} className="underline font-medium">Add one in your profile</a> — it only takes a moment.
+              </p>
             </div>
           )}
 
@@ -347,7 +345,7 @@ export function CreateOrderModal({ open, onOpenChange, onOrderCreated }: CreateO
             <Button
               type="submit"
               loading={creating}
-              disabled={emailType === 'custom' && (!isCheckedForCurrent || checkStatus === 'taken')}
+              disabled={!user?.phoneVerified || (emailType === 'custom' && (!isCheckedForCurrent || checkStatus === 'taken'))}
             >
               {useWalletCredit && canUseWalletCredit
                 ? remainingToPay === 0

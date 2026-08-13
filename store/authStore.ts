@@ -15,6 +15,7 @@ export interface AuthUser {
   // customer never has to re-enter it — order.service.ts on the backend
   // reuses whatever's on file.
   phone?:      string;
+  phoneVerified?: boolean;
   // Dispute-strike penalty system — see backend user.service.ts applyStrike().
   strikeCount?:  number;
   lockedUntil?:  string; // ISO date string once serialized over JSON

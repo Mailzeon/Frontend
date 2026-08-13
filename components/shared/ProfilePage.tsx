@@ -85,10 +85,21 @@ export function ProfilePage({ showPaymentDetails = false }: ProfilePageProps) {
         ...(phone.trim() ? { phone: phone.trim() } : {}),
       });
       if (data.success) {
-        updateUser({ name: name.trim(), phone: phone.trim() || user?.phone });
-        toast.success('Profile updated successfully.');
+        // Use the backend's returned user object directly rather than a
+        // manual partial merge — phoneVerified is computed server-side
+        // (see user.routes.ts PUT /profile), so building it by hand here
+        // would just guess wrong.
+        updateUser(data.data);
+        toast.success(
+          phone.trim() && phone.trim() !== user?.phone
+            ? 'Phone verified and profile updated!'
+            : 'Profile updated successfully.'
+        );
       }
     } catch (err: any) {
+      // Backend gives a specific reason (invalid number, VOIP rejected,
+      // provider unreachable) — surface it as-is rather than a generic
+      // failure message, since the person needs to know WHAT to fix.
       toast.error(err.response?.data?.message || 'Failed to update profile.');
     } finally {
       setSavingProfile(false);
@@ -195,6 +206,21 @@ export function ProfilePage({ showPaymentDetails = false }: ProfilePageProps) {
         <p className="text-gray-400 text-sm mt-0.5">Manage your account details</p>
       </div>
 
+      {/* Unverified phone — blocks placing/accepting orders, see
+          order.service.ts createOrder()/acceptOrder() */}
+      {!user?.phoneVerified && (
+        <div className="glass-card p-4 border border-yellow-500/30 bg-yellow-500/5 flex items-start gap-3">
+          <Phone className="w-5 h-5 text-yellow-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-yellow-300">Verify your phone number</p>
+            <p className="text-xs text-yellow-400/80 mt-0.5">
+              You need a verified phone number to place or accept orders. Add one below — it's checked
+              instantly and only takes a moment.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Profile picture */}
       <div className="glass-card p-5 flex items-center gap-4">
         <div className="relative shrink-0">
@@ -277,9 +303,20 @@ export function ProfilePage({ showPaymentDetails = false }: ProfilePageProps) {
             <p className="text-xs text-gray-500">Email cannot be changed.</p>
           </div>
           <div className="space-y-1.5">
-            <Label className="flex items-center gap-1.5">
-              <Phone className="w-3.5 h-3.5" /> Phone number
-            </Label>
+            <div className="flex items-center justify-between">
+              <Label className="flex items-center gap-1.5">
+                <Phone className="w-3.5 h-3.5" /> Phone number
+              </Label>
+              {user?.phoneVerified ? (
+                <span className="text-[10px] font-semibold text-green-400 px-1.5 py-0.5 rounded bg-green-500/10 border border-green-500/20">
+                  ✓ Verified
+                </span>
+              ) : (
+                <span className="text-[10px] font-semibold text-yellow-400 px-1.5 py-0.5 rounded bg-yellow-500/10 border border-yellow-500/20">
+                  Not verified
+                </span>
+              )}
+            </div>
             <Input
               type="tel"
               placeholder="9876543210"
@@ -288,7 +325,9 @@ export function ProfilePage({ showPaymentDetails = false }: ProfilePageProps) {
               maxLength={10}
             />
             <p className="text-xs text-gray-500">
-              Required to place orders — used by our payment partner to process your payment.
+              {user?.phoneVerified
+                ? 'Required to place or accept orders. Changing this will re-verify it.'
+                : 'A real, active mobile number is required to place or accept orders — VOIP/virtual numbers are not accepted.'}
             </p>
           </div>
           <div className="flex justify-end">

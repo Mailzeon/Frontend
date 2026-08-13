@@ -10,6 +10,7 @@ import { toast } from '@/components/ui/toast';
 import { useAuthStore } from '@/store/authStore';
 import { api } from '@/lib/api';
 import { initSocket } from '@/lib/socket';
+import { getDeviceId } from '@/lib/fingerprint';
 import { Footer } from '@/components/shared/Footer';
 
 export default function LoginPage() {
@@ -25,7 +26,8 @@ export default function LoginPage() {
     if (!email.trim() || !password) { toast.error('Please fill in all fields.'); return; }
     setLoading(true);
     try {
-      const { data } = await api.post('/auth/login', { email: email.trim(), password });
+      const deviceId = await getDeviceId();
+      const { data } = await api.post('/auth/login', { email: email.trim(), password, ...(deviceId ? { deviceId } : {}) });
       if (!data.success) { toast.error(data.message); return; }
       const { user } = data.data;
       setAuth(user);

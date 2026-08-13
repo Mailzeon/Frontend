@@ -22,6 +22,7 @@ function RegisterContent() {
   const { minimumOrderAmount, platformCommissionRate, fetchSettings } = useSettingsStore();
   const [name, setName]         = useState('');
   const [email, setEmail]       = useState('');
+  const [phone, setPhone]       = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole]         = useState<'customer' | 'worker'>('customer');
   const [show, setShow]         = useState(false);
@@ -38,12 +39,13 @@ function RegisterContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !email.trim() || !password) { toast.error('Please fill in all fields.'); return; }
+    if (!/^[6-9]\d{9}$/.test(phone.trim())) { toast.error('Enter a valid 10-digit Indian mobile number.'); return; }
     if (password.length < 6) { toast.error('Password must be at least 6 characters.'); return; }
     setLoading(true);
     try {
       const deviceId = await getDeviceId();
       const { data } = await api.post('/auth/register', {
-        name: name.trim(), email: email.trim(), password, role,
+        name: name.trim(), email: email.trim(), phone: phone.trim(), password, role,
         ...(referralCode ? { referralCode } : {}),
         ...(deviceId ? { deviceId } : {}),
       });
@@ -114,6 +116,21 @@ function RegisterContent() {
             <div className="space-y-1.5">
               <Label htmlFor="email">Email address</Label>
               <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="phone">Phone number</Label>
+              <Input
+                id="phone"
+                type="tel"
+                placeholder="9876543210"
+                value={phone}
+                onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                maxLength={10}
+              />
+              <p className="text-xs text-gray-500">
+                A real, active mobile number is required — used to verify your account and for payments.
+              </p>
             </div>
 
             <div className="space-y-1.5">

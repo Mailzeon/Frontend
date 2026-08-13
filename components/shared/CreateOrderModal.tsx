@@ -9,7 +9,7 @@
  * reached the other. Consolidated into a single component so there is now
  * only one place to ever fix or extend this form again.
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Shuffle, Edit3, Check, IndianRupee, Phone, Loader2, XCircle, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -60,11 +60,20 @@ export function CreateOrderModal({ open, onOpenChange, onOrderCreated }: CreateO
     } catch { /* Non-critical — the order form still works without this */ }
   };
 
-  // Refresh wallet balance every time the modal opens, so a top-up done in
-  // another tab/page is reflected without needing a full page reload.
+  // BUG FIX: this used to only fetch on the modal's OWN onOpenChange
+  // callback — but the "New Order" button on the dashboard/orders page
+  // opens the modal by calling its OWN setShowModal(true) directly, which
+  // never goes through onOpenChange at all. Net effect: walletBalance
+  // silently stayed 0 forever, so the "pay with wallet credit" toggle
+  // never appeared even for a customer who genuinely had a balance. A
+  // plain effect watching the `open` prop fires no matter how the modal
+  // got opened.
+  useEffect(() => {
+    if (open) fetchWallet();
+  }, [open]);
+
   const handleOpenChange = (v: boolean) => {
     onOpenChange(v);
-    if (v) fetchWallet();
     if (!v) resetModal();
   };
 

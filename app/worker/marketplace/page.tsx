@@ -44,6 +44,7 @@ export default function WorkerMarketplace() {
 
   const accept = async (orderId: string) => {
     if (!user?.isApproved) { toast.error('Your account is pending admin approval.'); return; }
+    if (!user?.phoneVerified) { toast.error('Please verify your phone number in your profile before accepting orders.'); return; }
     if (isLocked) {
       toast.error(isPermanent ? 'Your account has been permanently banned.' : `Your account is locked for ${formattedTime} due to a dispute strike.`);
       return;
@@ -77,6 +78,13 @@ export default function WorkerMarketplace() {
       {!user?.isApproved && (
         <div className="p-4 rounded-xl bg-yellow-500/5 border border-yellow-500/20 text-sm text-yellow-400">
           ⏳ Your account is pending admin approval. You cannot accept orders until approved.
+        </div>
+      )}
+
+      {user?.isApproved && !user?.phoneVerified && (
+        <div className="p-4 rounded-xl bg-yellow-500/5 border border-yellow-500/20 text-sm text-yellow-400">
+          📱 You need a verified phone number to accept orders.{' '}
+          <a href="/worker/profile" className="underline font-medium">Add one in your profile</a>.
         </div>
       )}
 
@@ -158,7 +166,7 @@ export default function WorkerMarketplace() {
                 <Button
                   onClick={() => accept(o._id)}
                   loading={accepting === o._id}
-                  disabled={!user?.isApproved || isLocked}>
+                  disabled={!user?.isApproved || !user?.phoneVerified || isLocked}>
                   Accept
                 </Button>
               </div>

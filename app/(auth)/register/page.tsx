@@ -11,6 +11,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { api } from '@/lib/api';
 import { initSocket } from '@/lib/socket';
+import { getDeviceId } from '@/lib/fingerprint';
 import { cn } from '@/lib/utils';
 import { Footer } from '@/components/shared/Footer';
 
@@ -40,9 +41,11 @@ function RegisterContent() {
     if (password.length < 6) { toast.error('Password must be at least 6 characters.'); return; }
     setLoading(true);
     try {
+      const deviceId = await getDeviceId();
       const { data } = await api.post('/auth/register', {
         name: name.trim(), email: email.trim(), password, role,
         ...(referralCode ? { referralCode } : {}),
+        ...(deviceId ? { deviceId } : {}),
       });
       if (!data.success) { toast.error(data.message); return; }
       const { user } = data.data;

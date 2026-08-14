@@ -22,6 +22,7 @@ import Link from 'next/link';
 
 const DISPUTE_REASONS: { value: DisputeReason; label: string }[] = [
   { value: 'wrong_password',  label: 'Wrong password — cannot log in' },
+  { value: 'account_not_found', label: "Account doesn't exist / couldn't find it" },
   { value: 'unable_to_login', label: 'Unable to login for another reason' },
   { value: 'account_issue',   label: 'Account is suspended / deactivated' },
   { value: 'other',           label: 'Other issue' },
@@ -560,8 +561,13 @@ export default function CustomerOrderDetail() {
         </div>
       )}
 
-      {/* Under Review */}
-      {isReview && (
+      {/* Under Review — grace window still active (worker has a chance to fix it) */}
+      {isReview && order.wrongPasswordGraceDeadline && new Date(order.wrongPasswordGraceDeadline) > new Date() && (
+        <GraceWaitCard deadline={order.wrongPasswordGraceDeadline} />
+      )}
+
+      {/* Under Review — either a non-wrong-password dispute, or the grace window has expired */}
+      {isReview && !(order.wrongPasswordGraceDeadline && new Date(order.wrongPasswordGraceDeadline) > new Date()) && (
         <div className="glass-card p-6 text-center space-y-3 border border-red-500/20">
           <AlertTriangle className="w-10 h-10 text-red-400 mx-auto" />
           <p className="font-semibold text-white">Under Review</p>
@@ -746,6 +752,34 @@ export default function CustomerOrderDetail() {
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+// Shown to the customer while their wrong-password dispute is in the
+// grace window — see backend order.service.ts reportProblem() /
+// utils/disputeGrace.ts. The worker hasn't been escalated to admin yet;
+// they've been given a timed chance to resend the correct password first.
+function GraceWaitCard({ deadline }: { deadline: string }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const msLeft = Math.max(0, new Date(deadline).getTime() - now);
+  const minutesLeft = Math.floor(msLeft / 60000);
+  const secondsLeft = Math.floor((msLeft % 60000) / 1000);
+
+  return (
+    <div className="glass-card p-6 text-center space-y-3 border border-yellow-500/30 bg-yellow-500/5">
+      <Clock className="w-10 h-10 text-yellow-400 mx-auto" />
+      <p className="font-semibold text-yellow-300">Giving the Worker a Chance to Fix It</p>
+      <p className="text-sm text-yellow-400/90">
+        We've asked the worker to resend the correct password. They have{' '}
+        <span className="font-mono font-bold">{minutesLeft}:{secondsLeft.toString().padStart(2, '0')}</span> left.
+        If they don't respond in time, this will automatically be escalated to admin for review.
+      </p>
     </div>
   );
 }

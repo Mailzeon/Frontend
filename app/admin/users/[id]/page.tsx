@@ -180,9 +180,13 @@ export default function AdminUserDetailPage() {
           <div className="flex items-center gap-4 mt-1 flex-wrap text-sm text-gray-400">
             <span className="inline-flex items-center gap-1.5">
               <Mail className="w-3.5 h-3.5" /> {user.email}
-              {user.emailVerified ? (
+              {user.emailVerificationStatus === 'valid' && (
                 <span className="text-[10px] font-semibold text-green-400 px-1.5 py-0.5 rounded bg-green-500/10 border border-green-500/20">✓</span>
-              ) : (
+              )}
+              {user.emailVerificationStatus === 'invalid' && (
+                <span className="text-[10px] font-semibold text-red-400 px-1.5 py-0.5 rounded bg-red-500/10 border border-red-500/20" title="Confirmed not to exist">⛔</span>
+              )}
+              {(!user.emailVerificationStatus || user.emailVerificationStatus === 'unknown') && (
                 <span className="text-[10px] font-semibold text-yellow-400 px-1.5 py-0.5 rounded bg-yellow-500/10 border border-yellow-500/20" title="Not confirmed to exist">⚠️</span>
               )}
             </span>

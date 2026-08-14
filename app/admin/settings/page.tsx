@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Save, IndianRupee, Clock, Timer, Percent, AlertTriangle, Trash2, PlayCircle, ShieldAlert, Gift } from 'lucide-react';
+import { Settings as SettingsIcon, Save, IndianRupee, Clock, Timer, Percent, AlertTriangle, Trash2, PlayCircle, ShieldAlert, Gift, KeyRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -33,6 +33,8 @@ const SETTING_META: Record<string, { label: string; icon: React.ElementType; suf
   strikeLockHours3:       { label: 'Strike 3 — Lock Duration', icon: ShieldAlert, suffix: 'hours', order: 7 },
   strikeLockHours4Plus:   { label: 'Strike 4+ — Lock Duration', icon: ShieldAlert, suffix: 'hours', order: 8 },
   referralTaxRate:        { label: 'Referral Fee', icon: Gift, suffix: '%', order: 9, max: 100 },
+  wrongPasswordGraceMinutes: { label: 'Wrong-Password Grace Window', icon: KeyRound, suffix: 'minutes', order: 10 },
+  wrongPasswordPenaltyRate:  { label: 'Wrong-Password Penalty',      icon: KeyRound, suffix: '%',       order: 11, max: 100 },
 };
 
 const KNOWN_KEYS = Object.keys(SETTING_META);

@@ -6,6 +6,7 @@ export interface AuthUser {
   _id:         string;
   name:        string;
   email:       string;
+  emailVerificationStatus?: 'valid' | 'invalid' | 'unknown';
   role:        'customer' | 'worker' | 'admin';
   isApproved:  boolean;
   isOnline?:   boolean;

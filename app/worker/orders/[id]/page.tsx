@@ -330,7 +330,11 @@ export default function WorkerOrderDetail() {
         </div>
       )}
 
-      {order.status === 'under_review' && (
+      {order.status === 'under_review' && order.wrongPasswordGraceDeadline && new Date(order.wrongPasswordGraceDeadline) > new Date() && (
+        <GraceWindowCard order={order} onSubmitted={fetchOrder} />
+      )}
+
+      {order.status === 'under_review' && !(order.wrongPasswordGraceDeadline && new Date(order.wrongPasswordGraceDeadline) > new Date()) && (
         <div className="glass-card p-6 text-center space-y-2 border border-red-500/20">
           <p className="font-semibold text-white">Under Review</p>
           <p className="text-sm text-gray-400">The customer raised a dispute. Admin is reviewing this order.</p>
@@ -343,6 +347,75 @@ export default function WorkerOrderDetail() {
           <p className="text-sm text-gray-400">This order was cancelled following a dispute review. No earnings were released for it.</p>
         </div>
       )}
+    </div>
+  );
+}
+
+// Wrong-password grace window — see backend order.service.ts reportProblem()/
+// resubmitCredentials(). Worker gets one timed chance to fix a wrong
+// password before this becomes an admin-reviewable dispute.
+function GraceWindowCard({ order, onSubmitted }: { order: Order; onSubmitted: () => void }) {
+  const [email, setEmail]       = useState(order.requestedEmail || order.credentials?.email || '');
+  const [password, setPassword] = useState('');
+  const [notes, setNotes]       = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const deadlineMs = order.wrongPasswordGraceDeadline ? new Date(order.wrongPasswordGraceDeadline).getTime() : 0;
+  const msLeft = Math.max(0, deadlineMs - now);
+  const minutesLeft = Math.floor(msLeft / 60000);
+  const secondsLeft = Math.floor((msLeft % 60000) / 1000);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim() || !password.trim()) { toast.error('Email and password are required.'); return; }
+    setSubmitting(true);
+    try {
+      const { data } = await api.patch(`/orders/${order._id}/resubmit-credentials`, {
+        email: email.trim(), password: password.trim(), notes: notes.trim() || undefined,
+      });
+      if (data.success) { toast.success('Corrected credentials submitted!'); onSubmitted(); }
+    } catch (err: any) { toast.error(err.response?.data?.message || 'Failed.'); }
+    finally { setSubmitting(false); }
+  };
+
+  return (
+    <div className="glass-card p-6 space-y-4 border border-yellow-500/30 bg-yellow-500/5">
+      <div className="flex items-start gap-3">
+        <ShieldAlert className="w-5 h-5 text-yellow-400 shrink-0 mt-0.5" />
+        <div>
+          <p className="font-semibold text-yellow-300">Customer Says: Wrong Password</p>
+          <p className="text-sm text-yellow-400/90 mt-1">
+            You have <span className="font-mono font-bold">{minutesLeft}:{secondsLeft.toString().padStart(2, '0')}</span> to
+            resubmit the <span className="font-semibold">correct</span> password. If you don't respond in time,
+            or it's wrong again, this goes to admin — if confirmed, it's treated as account theft and results in a
+            <span className="font-semibold"> permanent ban</span>.
+          </p>
+        </div>
+      </div>
+
+      <form onSubmit={submit} className="space-y-3">
+        <div className="space-y-1.5">
+          <Label>Email</Label>
+          <Input value={email} onChange={e => setEmail(e.target.value)} disabled={!!order.requestedEmail} />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Correct Password</Label>
+          <Input type="text" value={password} onChange={e => setPassword(e.target.value)} placeholder="Double-check this before submitting" />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Notes (optional)</Label>
+          <Input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Anything the customer should know" />
+        </div>
+        <Button type="submit" loading={submitting} className="w-full">
+          <Send className="w-4 h-4 mr-2" /> Resubmit Corrected Password
+        </Button>
+      </form>
     </div>
   );
 }

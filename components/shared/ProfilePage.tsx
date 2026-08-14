@@ -56,6 +56,10 @@ export function ProfilePage({ showPaymentDetails = false }: ProfilePageProps) {
 
   // ── Profile info form ─────────────────────────────────────────────────────
   const [name, setName]           = useState(user?.name ?? '');
+  // NEW: email is now editable — it used to be permanently locked, but
+  // that left anyone whose email failed verification with no way to fix
+  // it. Re-verified on every change (see saveProfile()).
+  const [email, setEmail]         = useState(user?.email ?? '');
   // NEW: phone — required by Cashfree before a customer can place an order.
   // Editable here so it can be set up-front instead of only at checkout time.
   const [phone, setPhone]         = useState(user?.phone ?? '');
@@ -74,6 +78,10 @@ export function ProfilePage({ showPaymentDetails = false }: ProfilePageProps) {
   const saveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) { toast.error('Name cannot be empty.'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      toast.error('Enter a valid email address.');
+      return;
+    }
     if (phone.trim() && !/^[6-9]\d{9}$/.test(phone.trim())) {
       toast.error('Enter a valid 10-digit Indian mobile number.');
       return;
@@ -82,24 +90,29 @@ export function ProfilePage({ showPaymentDetails = false }: ProfilePageProps) {
     try {
       const { data } = await api.put('/users/profile', {
         name: name.trim(),
+        ...(email.trim().toLowerCase() !== user?.email ? { email: email.trim() } : {}),
         ...(phone.trim() ? { phone: phone.trim() } : {}),
       });
       if (data.success) {
         // Use the backend's returned user object directly rather than a
-        // manual partial merge — phoneVerified is computed server-side
-        // (see user.routes.ts PUT /profile), so building it by hand here
-        // would just guess wrong.
+        // manual partial merge — phoneVerified/emailVerificationStatus are
+        // computed server-side (see user.routes.ts PUT /profile), so
+        // building it by hand here would just guess wrong.
         updateUser(data.data);
+        const emailChanged = email.trim().toLowerCase() !== user?.email;
+        const phoneChanged = phone.trim() && phone.trim() !== user?.phone;
         toast.success(
-          phone.trim() && phone.trim() !== user?.phone
-            ? 'Phone verified and profile updated!'
-            : 'Profile updated successfully.'
+          emailChanged && phoneChanged ? 'Email and phone verified — profile updated!'
+          : emailChanged ? 'Email verified and profile updated!'
+          : phoneChanged ? 'Phone verified and profile updated!'
+          : 'Profile updated successfully.'
         );
       }
     } catch (err: any) {
       // Backend gives a specific reason (invalid number, VOIP rejected,
-      // provider unreachable) — surface it as-is rather than a generic
-      // failure message, since the person needs to know WHAT to fix.
+      // email doesn't exist, provider unreachable) — surface it as-is
+      // rather than a generic failure message, since the person needs to
+      // know WHAT to fix.
       toast.error(err.response?.data?.message || 'Failed to update profile.');
     } finally {
       setSavingProfile(false);
@@ -298,9 +311,30 @@ export function ProfilePage({ showPaymentDetails = false }: ProfilePageProps) {
             <Input value={name} onChange={e => setName(e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <Label>Email address</Label>
-            <Input value={user?.email ?? ''} disabled className="opacity-60 cursor-not-allowed" />
-            <p className="text-xs text-gray-500">Email cannot be changed.</p>
+            <div className="flex items-center justify-between">
+              <Label>Email address</Label>
+              {user?.emailVerificationStatus === 'valid' && (
+                <span className="text-[10px] font-semibold text-green-400 px-1.5 py-0.5 rounded bg-green-500/10 border border-green-500/20">
+                  ✓ Verified
+                </span>
+              )}
+              {user?.emailVerificationStatus === 'invalid' && (
+                <span className="text-[10px] font-semibold text-red-400 px-1.5 py-0.5 rounded bg-red-500/10 border border-red-500/20">
+                  ⛔ Doesn't exist
+                </span>
+              )}
+              {(!user?.emailVerificationStatus || user?.emailVerificationStatus === 'unknown') && (
+                <span className="text-[10px] font-semibold text-yellow-400 px-1.5 py-0.5 rounded bg-yellow-500/10 border border-yellow-500/20">
+                  Not confirmed
+                </span>
+              )}
+            </div>
+            <Input type="email" value={email} onChange={e => setEmail(e.target.value)} />
+            <p className="text-xs text-gray-500">
+              {user?.emailVerificationStatus === 'invalid'
+                ? "This address doesn't appear to exist — please update it, or you won't be able to place or accept orders."
+                : 'This is your login email. Changing it will re-verify it.'}
+            </p>
           </div>
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">

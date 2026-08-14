@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Users, ShoppingBag, Wallet, AlertTriangle, TrendingUp, Activity, Clock, Undo2, Percent } from 'lucide-react';
+import { Users, ShoppingBag, Wallet, AlertTriangle, TrendingUp, Activity, Clock, Undo2, Percent, KeyRound } from 'lucide-react';
 import { StatCard } from '@/components/shared/StatCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/toast';
@@ -89,6 +89,13 @@ export default function AdminDashboard() {
         <StatCard title="Gross Revenue (Today)" value={formatCurrency(stats?.todayRevenue ?? 0)}    icon={Activity}   color="blue"   />
         <StatCard title="Commission Earned (Total)" value={formatCurrency(stats?.totalCommission ?? 0)} icon={Percent} color="purple" />
         <StatCard title="Commission Earned (Today)" value={formatCurrency(stats?.todayCommission ?? 0)} icon={Percent} color="yellow" />
+      </div>
+
+      {/* NEW: wrong-password penalty revenue — separate from commission,
+          see backend wallet.service.ts settleOrderEarnings(). */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard title="Penalty Earned (Total)" value={formatCurrency(stats?.totalPenalty ?? 0)} icon={KeyRound} color="purple" />
+        <StatCard title="Penalty Earned (Today)" value={formatCurrency(stats?.todayPenalty ?? 0)} icon={KeyRound} color="yellow" />
       </div>
 
       {/* Order stats */}

@@ -48,6 +48,10 @@ export interface Order {
   credentialsSubmittedAt?: string;
   autoCompleteAt?:         string;
   completedAt?:            string;
+  // NEW — see backend order.service.ts reportProblem()/resubmitCredentials().
+  // Present + in the future while a worker still has time to fix a wrong
+  // password before the dispute reaches admin.
+  wrongPasswordGraceDeadline?: string;
   createdAt:               string;
   updatedAt:               string;
   refundEligible?:         boolean;
@@ -130,6 +134,7 @@ export interface RefundRequestType {
 // ─── Dispute ──────────────────────────────────────────────────────────────────
 export type DisputeReason =
   | 'wrong_password'
+  | 'account_not_found'
   | 'unable_to_login'
   | 'account_issue'
   | 'other';

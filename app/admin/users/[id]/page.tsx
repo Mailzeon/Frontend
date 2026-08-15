@@ -246,32 +246,36 @@ export default function AdminUserDetailPage() {
           </div>
           <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.05]">
             <p className="text-xs text-gray-500 mb-1 flex items-center gap-1"><Smartphone className="w-3 h-3" /> Registration Device</p>
-            {user.registrationDevice ? (
-              <div className="flex items-center gap-1.5">
-                <span className="font-mono text-gray-300 text-xs truncate max-w-[180px]" title={user.registrationDevice}>
-                  {user.registrationDevice}
+            <p className="text-gray-300">{user.registrationDeviceLabel || 'Unknown device'}</p>
+            {user.registrationDevice && (
+              <div className="flex items-center gap-1.5 mt-1">
+                <span className="font-mono text-gray-500 text-[10px] truncate max-w-[160px]" title={user.registrationDevice}>
+                  ID: {user.registrationDevice}
                 </span>
                 <button onClick={() => copyText(user.registrationDevice, 'Device ID')} className="text-gray-500 hover:text-white shrink-0">
                   <Copy className="w-3 h-3" />
                 </button>
               </div>
-            ) : <span className="text-gray-600">Not captured</span>}
+            )}
           </div>
           <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.05]">
             <p className="text-xs text-gray-500 mb-1 flex items-center gap-1"><Smartphone className="w-3 h-3" /> Last Login Device</p>
-            {user.lastLoginDevice ? (
-              <div className="flex items-center gap-1.5">
-                <span className="font-mono text-gray-300 text-xs truncate max-w-[180px]" title={user.lastLoginDevice}>
-                  {user.lastLoginDevice}
+            <p className="text-gray-300">
+              {user.lastLoginDeviceLabel || 'Unknown device'}
+              {user.lastLoginDeviceLabel && user.lastLoginDeviceLabel !== user.registrationDeviceLabel && (
+                <span className="text-[10px] text-gray-500 ml-1.5">(different from registration)</span>
+              )}
+            </p>
+            {user.lastLoginDevice && (
+              <div className="flex items-center gap-1.5 mt-1">
+                <span className="font-mono text-gray-500 text-[10px] truncate max-w-[160px]" title={user.lastLoginDevice}>
+                  ID: {user.lastLoginDevice}
                 </span>
                 <button onClick={() => copyText(user.lastLoginDevice, 'Device ID')} className="text-gray-500 hover:text-white shrink-0">
                   <Copy className="w-3 h-3" />
                 </button>
-                {user.lastLoginDevice !== user.registrationDevice && (
-                  <span className="text-[10px] text-gray-500">(different from registration)</span>
-                )}
               </div>
-            ) : <span className="text-gray-600">Not captured</span>}
+            )}
           </div>
         </div>
         {user.ipRiskFlag?.isRisky && (

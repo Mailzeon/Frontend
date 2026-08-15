@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   ArrowLeft, Wallet, Star, ShoppingBag, AlertTriangle, Phone, Mail, Trash2, ShieldAlert,
+  Globe, Smartphone, Copy,
 } from 'lucide-react';
 import { StatCard } from '@/components/shared/StatCard';
 import { OrderStatusBadge } from '@/components/shared/OrderStatusBadge';
@@ -24,6 +25,11 @@ const LEVEL_COLOR: Record<string, string> = { bronze: 'text-amber-500', silver: 
 // nonsensical date/duration.
 const isPermanentLockDate = (date: string | Date) =>
   new Date(date).getFullYear() > new Date().getFullYear() + 50;
+
+function copyText(text: string, label: string) {
+  navigator.clipboard.writeText(text);
+  toast.success(`${label} copied!`);
+}
 
 export default function AdminUserDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -201,6 +207,79 @@ export default function AdminUserDetailPage() {
           </div>
           <p className="text-xs text-gray-500 mt-1">Joined {formatDate(user.createdAt)}</p>
         </div>
+      </div>
+
+      {/* Network & device info — see backend User.model.ts registrationIp/
+          lastLoginIp/registrationDevice/lastLoginDevice, and
+          ipRiskFlag from the VPN/proxy check at signup. Useful for
+          spotting shared IPs/devices across accounts (evasion) or just
+          confirming a support/dispute claim. */}
+      <div className="glass-card p-5">
+        <h2 className="font-semibold text-white mb-3 flex items-center gap-2">
+          <Globe className="w-4 h-4 text-blue-400" /> Network & Device
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+          <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.05]">
+            <p className="text-xs text-gray-500 mb-1">Registration IP</p>
+            {user.registrationIp ? (
+              <div className="flex items-center gap-1.5">
+                <span className="font-mono text-gray-300">{user.registrationIp}</span>
+                <button onClick={() => copyText(user.registrationIp, 'IP')} className="text-gray-500 hover:text-white">
+                  <Copy className="w-3 h-3" />
+                </button>
+              </div>
+            ) : <span className="text-gray-600">—</span>}
+          </div>
+          <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.05]">
+            <p className="text-xs text-gray-500 mb-1">Last Login IP</p>
+            {user.lastLoginIp ? (
+              <div className="flex items-center gap-1.5">
+                <span className="font-mono text-gray-300">{user.lastLoginIp}</span>
+                <button onClick={() => copyText(user.lastLoginIp, 'IP')} className="text-gray-500 hover:text-white">
+                  <Copy className="w-3 h-3" />
+                </button>
+                {user.lastLoginIp !== user.registrationIp && (
+                  <span className="text-[10px] text-gray-500">(different from registration)</span>
+                )}
+              </div>
+            ) : <span className="text-gray-600">—</span>}
+          </div>
+          <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.05]">
+            <p className="text-xs text-gray-500 mb-1 flex items-center gap-1"><Smartphone className="w-3 h-3" /> Registration Device</p>
+            {user.registrationDevice ? (
+              <div className="flex items-center gap-1.5">
+                <span className="font-mono text-gray-300 text-xs truncate max-w-[180px]" title={user.registrationDevice}>
+                  {user.registrationDevice}
+                </span>
+                <button onClick={() => copyText(user.registrationDevice, 'Device ID')} className="text-gray-500 hover:text-white shrink-0">
+                  <Copy className="w-3 h-3" />
+                </button>
+              </div>
+            ) : <span className="text-gray-600">Not captured</span>}
+          </div>
+          <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.05]">
+            <p className="text-xs text-gray-500 mb-1 flex items-center gap-1"><Smartphone className="w-3 h-3" /> Last Login Device</p>
+            {user.lastLoginDevice ? (
+              <div className="flex items-center gap-1.5">
+                <span className="font-mono text-gray-300 text-xs truncate max-w-[180px]" title={user.lastLoginDevice}>
+                  {user.lastLoginDevice}
+                </span>
+                <button onClick={() => copyText(user.lastLoginDevice, 'Device ID')} className="text-gray-500 hover:text-white shrink-0">
+                  <Copy className="w-3 h-3" />
+                </button>
+                {user.lastLoginDevice !== user.registrationDevice && (
+                  <span className="text-[10px] text-gray-500">(different from registration)</span>
+                )}
+              </div>
+            ) : <span className="text-gray-600">Not captured</span>}
+          </div>
+        </div>
+        {user.ipRiskFlag?.isRisky && (
+          <div className="mt-3 p-2.5 rounded-lg bg-yellow-500/5 border border-yellow-500/20 text-xs text-yellow-400 flex items-center gap-2">
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+            Signed up via {user.ipRiskFlag.reasons?.join(', ') || 'VPN/Proxy'} — not necessarily a problem, just worth a look.
+          </div>
+        )}
       </div>
 
       {/* Worker stats */}

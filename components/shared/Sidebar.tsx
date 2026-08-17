@@ -15,11 +15,12 @@ import { toast } from '@/components/ui/toast';
 interface NavItem { href: string; label: string; Icon: React.ElementType; }
 
 const customerNav: NavItem[] = [
-  { href: '/customer/dashboard', label: 'Dashboard', Icon: LayoutDashboard },
-  { href: '/customer/orders',    label: 'My Orders',  Icon: ShoppingBag },
-  { href: '/customer/wallet',    label: 'Wallet',     Icon: Wallet },
-  { href: '/customer/refunds',   label: 'Refunds',    Icon: Undo2 },
-  { href: '/customer/profile',   label: 'Profile',    Icon: User },
+  { href: '/customer/dashboard',   label: 'Dashboard',   Icon: LayoutDashboard },
+  { href: '/customer/orders',      label: 'My Orders',   Icon: ShoppingBag },
+  { href: '/customer/wallet',      label: 'Wallet',      Icon: Wallet },
+  { href: '/customer/refunds',     label: 'Refunds',     Icon: Undo2 },
+  { href: '/customer/leaderboard', label: 'Leaderboard', Icon: Trophy },
+  { href: '/customer/profile',     label: 'Profile',     Icon: User },
 ];
 
 const workerNav: NavItem[] = [

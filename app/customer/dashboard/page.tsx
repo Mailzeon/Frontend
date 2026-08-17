@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { ShoppingBag, CheckCircle, Clock, AlertTriangle, Plus } from 'lucide-react';
+import { ShoppingBag, CheckCircle, Clock, AlertTriangle, Plus, Wallet as WalletIcon, Store } from 'lucide-react';
 import { StatCard } from '@/components/shared/StatCard';
 import { OrderStatusBadge } from '@/components/shared/OrderStatusBadge';
 import { CreateOrderModal } from '@/components/shared/CreateOrderModal';
@@ -9,11 +9,15 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
 import { shortId, timeAgo, formatCurrency } from '@/lib/utils';
+import { useAuthStore } from '@/store/authStore';
 import { Order } from '@/types';
 import Link from 'next/link';
+import { getSocket, SOCKET_EVENTS } from '@/lib/socket';
 
 export default function CustomerDashboard() {
+  const { user } = useAuthStore();
   const [orders, setOrders]     = useState<Order[]>([]);
+  const [wallet, setWallet]     = useState<any>(null);
   const [loading, setLoading]   = useState(true);
   const [showModal, setShowModal] = useState(false);
 
@@ -25,7 +29,30 @@ export default function CustomerDashboard() {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchOrders(); }, []);
+  const fetchWallet = async () => {
+    try {
+      const { data } = await api.get('/wallet');
+      if (data.success) setWallet(data.data);
+    } catch {}
+  };
+
+  useEffect(() => { fetchOrders(); fetchWallet(); }, []);
+
+  // Live "credentials ready, go verify" alert — this event already fires
+  // from the backend (order.service.ts, same CREDENTIALS_READY the worker
+  // dashboard listens for on the NEW_ORDER side), it just wasn't being
+  // listened to here yet. Refetch orders on it too so the recent-orders
+  // list and stats update without the customer having to manually refresh.
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+    const onCredentialsReady = () => {
+      toast.info('🔑 Account credentials are ready — verify now!');
+      fetchOrders();
+    };
+    socket.on(SOCKET_EVENTS.CREDENTIALS_READY, onCredentialsReady);
+    return () => { socket.off(SOCKET_EVENTS.CREDENTIALS_READY, onCredentialsReady); };
+  }, []);
 
   const stats = {
     total:     orders.length,
@@ -39,20 +66,36 @@ export default function CustomerDashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Dashboard</h1>
-          <p className="text-gray-400 text-sm mt-0.5">Track your orders and activity</p>
+          <p className="text-gray-400 text-sm mt-0.5">Welcome back, {user?.name}</p>
         </div>
         <Button onClick={() => setShowModal(true)}>
           <Plus className="w-4 h-4 mr-2" /> New Order
         </Button>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Stats — wallet balance leads, same "money first" priority as the
+          worker dashboard's Available Balance card. Previously this was
+          buried on the /customer/wallet page only. */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <StatCard title="Wallet Balance"  value={wallet ? formatCurrency(wallet.balance) : '₹0'} icon={WalletIcon}    color="green" />
         <StatCard title="Total Orders"    value={stats.total}     icon={ShoppingBag}     color="purple" />
         <StatCard title="Completed"       value={stats.completed} icon={CheckCircle}     color="green" />
         <StatCard title="Active"          value={stats.active}    icon={Clock}           color="blue" />
         <StatCard title="Under Review"    value={stats.disputes}  icon={AlertTriangle}   color="red" />
       </div>
+
+      {/* Active orders quick-link — mirrors the worker dashboard's
+          "N active orders → Work now" banner. */}
+      {stats.active > 0 && (
+        <Link href="/customer/orders"
+          className="flex items-center justify-between p-4 rounded-xl bg-purple-600/10 border border-purple-500/30 hover:bg-purple-600/20 transition-colors">
+          <div className="flex items-center gap-3">
+            <Store className="w-5 h-5 text-purple-400" />
+            <p className="font-medium text-white">You have <span className="text-purple-400">{stats.active} active order{stats.active > 1 ? 's' : ''}</span></p>
+          </div>
+          <span className="text-purple-400 text-sm">Track now →</span>
+        </Link>
+      )}
 
       {/* Recent orders */}
       <div className="glass-card p-5">
@@ -93,3 +136,4 @@ export default function CustomerDashboard() {
     </div>
   );
 }
+

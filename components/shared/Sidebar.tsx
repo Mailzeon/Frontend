@@ -39,6 +39,7 @@ const adminNav: NavItem[] = [
   { href: '/admin/users',        label: 'Users',        Icon: Users },
   { href: '/admin/wallet',       label: 'Wallet',       Icon: Wallet },
   { href: '/admin/referrals',    label: 'Referrals',    Icon: Gift },
+  { href: '/admin/leaderboard',  label: 'Leaderboard',  Icon: Trophy },
   { href: '/admin/withdrawals',  label: 'Withdrawals',  Icon: Wallet },
   { href: '/admin/refunds',      label: 'Refunds',      Icon: Undo2 },
   { href: '/admin/disputes',     label: 'Disputes',     Icon: AlertTriangle },

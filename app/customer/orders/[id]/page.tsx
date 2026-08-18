@@ -198,7 +198,14 @@ export default function CustomerOrderDetail() {
         description: disputeDesc.trim() || undefined,
       });
       if (data.success) {
-        toast.success('Problem reported. Admin is reviewing your case.');
+        if (disputeReason === 'account_not_found' && data.data.status === 'cancelled') {
+          // Auto-resolved instantly by the backend's live email-existence
+          // check — never went to admin review, so the messaging should
+          // reflect that instead of the generic "admin is reviewing" line.
+          toast.success('Confirmed — account doesn\'t exist. Order cancelled and refunded to your wallet.');
+        } else {
+          toast.success('Problem reported. Admin is reviewing your case.');
+        }
         setShowDispute(false);
         setDisputeDesc('');
         fetchOrder();

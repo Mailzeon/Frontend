@@ -6,6 +6,8 @@ interface PublicSettings {
   platformCommissionRate: number;
   orderTimerMinutes: number;
   autoCompleteHours: number;
+  referralTaxRate: number;
+  customerReferralBonusRate: number;
 }
 
 interface SettingsState extends PublicSettings {
@@ -21,6 +23,8 @@ const DEFAULTS: PublicSettings = {
   platformCommissionRate: 15,
   orderTimerMinutes: 10,
   autoCompleteHours: 24,
+  referralTaxRate: 3,
+  customerReferralBonusRate: 3,
 };
 
 /**

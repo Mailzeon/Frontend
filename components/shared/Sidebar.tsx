@@ -20,6 +20,7 @@ const customerNav: NavItem[] = [
   { href: '/customer/wallet',      label: 'Wallet',      Icon: Wallet },
   { href: '/customer/refunds',     label: 'Refunds',     Icon: Undo2 },
   { href: '/customer/leaderboard', label: 'Leaderboard', Icon: Trophy },
+  { href: '/customer/referral',    label: 'Refer & Earn',Icon: Gift },
   { href: '/customer/profile',     label: 'Profile',     Icon: User },
 ];
 

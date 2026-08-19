@@ -32,7 +32,8 @@ const SETTING_META: Record<string, { label: string; icon: React.ElementType; suf
   strikeLockHours2:       { label: 'Strike 2 — Lock Duration', icon: ShieldAlert, suffix: 'hours', order: 6 },
   strikeLockHours3:       { label: 'Strike 3 — Lock Duration', icon: ShieldAlert, suffix: 'hours', order: 7 },
   strikeLockHours4Plus:   { label: 'Strike 4+ — Lock Duration', icon: ShieldAlert, suffix: 'hours', order: 8 },
-  referralTaxRate:        { label: 'Referral Fee', icon: Gift, suffix: '%', order: 9, max: 100 },
+  referralTaxRate:        { label: 'Worker Referral Fee', icon: Gift, suffix: '%', order: 9, max: 100 },
+  customerReferralBonusRate: { label: 'Customer Referral Bonus', icon: Gift, suffix: '%', order: 9.5, max: 100 },
   wrongPasswordGraceMinutes: { label: 'Wrong-Password Grace Window', icon: KeyRound, suffix: 'minutes', order: 10 },
   wrongPasswordPenaltyRate:  { label: 'Wrong-Password Penalty',      icon: KeyRound, suffix: '%',       order: 11, max: 100 },
 };
@@ -229,10 +230,21 @@ export default function AdminSettingsPage() {
 
       <div className="p-4 rounded-xl bg-purple-500/5 border border-purple-500/20">
         <p className="text-sm text-purple-400">
-          🎁 Referral Fee is the percentage a referred worker's earning is reduced by on every order
-          they complete — paid straight to whoever referred them. Comes entirely out of the worker's
-          own cut, never the platform's commission, so raising or lowering it never affects platform
-          revenue either way.
+          🎁 Worker Referral Fee is the percentage a referred worker's earning is reduced by on
+          every order they complete — paid straight to whoever referred them. Comes entirely out
+          of the worker's own cut, never the platform's commission, so raising or lowering it
+          never affects platform revenue either way.
+        </p>
+      </div>
+
+      <div className="p-4 rounded-xl bg-purple-500/5 border border-purple-500/20">
+        <p className="text-sm text-purple-400">
+          🎁 Customer Referral Bonus is a separate, independent program — it's the percentage
+          deducted from the fulfilling worker's earning and paid to a referring customer, on every
+          order placed by the customer they referred. Platform commission stays untouched at
+          whatever rate it's set to above; this comes out of the worker's cut, same funding
+          mechanism as the worker referral fee, just a different pool. Customers can only spend
+          this credit on Mailzeon — it can't be withdrawn.
         </p>
       </div>
 

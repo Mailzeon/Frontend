@@ -1,19 +1,23 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Gift, Copy, Users, IndianRupee, CheckCircle2 } from 'lucide-react';
+import { Gift, Copy, Users, IndianRupee, CheckCircle2, Info } from 'lucide-react';
 import { StatCard } from '@/components/shared/StatCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { useSettingsStore } from '@/store/settingsStore';
 
 export default function WorkerReferralPage() {
+  const { referralTaxRate, fetchSettings } = useSettingsStore();
   const [data, setData] = useState<{
     referralCode: string;
     totalEarned: number;
     referred: { name: string; joinedAt: string; completedOrders: number }[];
   } | null>(null);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => { fetchSettings(); }, []);
 
   useEffect(() => {
     (async () => {
@@ -52,16 +56,32 @@ export default function WorkerReferralPage() {
         </div>
       ) : (
         <>
+          {/* Plain-language explainer so a worker can see exactly how the
+              money works before they bother sharing their link — the
+              number itself always comes from the live setting, never
+              hardcoded, so this stays correct if the admin ever tunes it. */}
+          <div className="glass-card p-5 border border-purple-500/20 bg-purple-500/5">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-purple-500/15 flex items-center justify-center shrink-0">
+                <Info className="w-4 h-4 text-purple-400" />
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-sm font-semibold text-white">How you earn from this</p>
+                <p className="text-sm text-gray-300 leading-relaxed">
+                  Share your link below. When someone signs up as a worker through it, you're
+                  connected for good. From then on, every single order they complete, you
+                  automatically get <span className="text-purple-300 font-semibold">{referralTaxRate}% of what they earn</span> credited
+                  straight to your wallet — not just their first order, <span className="underline decoration-purple-400/50">every order, for as long as they keep working</span>.
+                </p>
+              </div>
+            </div>
+          </div>
+
           <div className="glass-card p-6 space-y-4">
             <div className="flex items-center gap-2">
               <Gift className="w-4 h-4 text-purple-400" />
               <h2 className="font-semibold text-white">Your Referral Link</h2>
             </div>
-            <p className="text-sm text-gray-400">
-              Share this link with other workers. When someone signs up through it and completes
-              their first order, you're set — you'll keep earning a small share of every order they
-              complete after that, for as long as they're on the platform.
-            </p>
             <div className="flex gap-2">
               <div className="flex-1 px-3 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-sm text-gray-300 font-mono truncate">
                 {link}

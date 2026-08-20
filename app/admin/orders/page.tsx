@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import {
   ShoppingBag, Search, History, PackagePlus, UserCheck, ShieldAlert, Ban,
   KeyRound, AlertTriangle, CheckCircle2, XCircle, IndianRupee, Clock3, Gavel,
+  CreditCard,
 } from 'lucide-react';
 import { OrderStatusBadge } from '@/components/shared/OrderStatusBadge';
 import { Input } from '@/components/ui/input';
@@ -30,6 +31,8 @@ const STATUSES: { value: string; label: string }[] = [
 // the actual wording always comes from the server's precomputed `message`.
 const EVENT_STYLES: Record<string, { icon: any; color: string }> = {
   created:                             { icon: PackagePlus,  color: 'text-purple-400 bg-purple-500/10 border-purple-500/20' },
+  payment_confirmed:                   { icon: CreditCard,   color: 'text-green-400 bg-green-500/10 border-green-500/20' },
+  payment_failed:                      { icon: XCircle,      color: 'text-red-400 bg-red-500/10 border-red-500/20' },
   accepted:                            { icon: UserCheck,    color: 'text-blue-400 bg-blue-500/10 border-blue-500/20' },
   accept_blocked_email_taken:          { icon: ShieldAlert,  color: 'text-orange-400 bg-orange-500/10 border-orange-500/20' },
   expired_returned:                    { icon: Clock3,       color: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20' },
@@ -49,6 +52,8 @@ const EVENT_STYLES: Record<string, { icon: any; color: string }> = {
 
 const EVENT_LABELS: Record<string, string> = {
   created:                             'Order Created',
+  payment_confirmed:                   'Payment Confirmed',
+  payment_failed:                      'Payment Failed',
   accepted:                            'Accepted by Worker',
   accept_blocked_email_taken:          'Accept Blocked — Email Taken',
   expired_returned:                    'Timer Expired — Returned to Marketplace',
@@ -140,21 +145,31 @@ function HistoryModal({ orderId, open, onOpenChange }: { orderId: string | null;
 export default function AdminOrdersPage() {
   const [orders, setOrders]   = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [status, setStatus]   = useState('all');
   const [search, setSearch]   = useState('');
   const [historyOrderId, setHistoryOrderId] = useState<string | null>(null);
+  const [page, setPage]         = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
 
-  const fetchOrders = async (s: string) => {
-    setLoading(true);
+  const fetchOrders = async (s: string, p: number, append: boolean) => {
+    if (append) setLoadingMore(true); else setLoading(true);
     try {
-      const q = s !== 'all' ? `?status=${s}` : '';
-      const { data } = await api.get(`/admin/orders${q}`);
-      if (data.success) setOrders(data.data.orders);
+      const params = new URLSearchParams({ page: String(p), limit: '20' });
+      if (s !== 'all') params.set('status', s);
+      const { data } = await api.get(`/admin/orders?${params.toString()}`);
+      if (data.success) {
+        setOrders(prev => append ? [...prev, ...data.data.orders] : data.data.orders);
+        setTotalPages(data.data.totalPages);
+        setTotalCount(data.data.total);
+        setPage(p);
+      }
     } catch { toast.error('Failed to load orders.'); }
-    finally { setLoading(false); }
+    finally { setLoading(false); setLoadingMore(false); }
   };
 
-  useEffect(() => { fetchOrders(status); }, [status]);
+  useEffect(() => { fetchOrders(status, 1, false); }, [status]);
 
   const filtered = orders.filter(o =>
     o.serviceName?.toLowerCase().includes(search.toLowerCase()) ||
@@ -165,7 +180,7 @@ export default function AdminOrdersPage() {
     <div className="space-y-5">
       <div>
         <h1 className="text-2xl font-bold text-white">All Orders</h1>
-        <p className="text-gray-400 text-sm mt-0.5">{orders.length} orders</p>
+        <p className="text-gray-400 text-sm mt-0.5">{totalCount} orders</p>
       </div>
 
       <div className="flex gap-3 flex-wrap">
@@ -223,6 +238,18 @@ export default function AdminOrdersPage() {
               ))}
             </tbody>
           </table>
+          </div>
+        )}
+        {!loading && page < totalPages && (
+          <div className="p-4 border-t border-white/[0.06] flex justify-center">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={loadingMore}
+              onClick={() => fetchOrders(status, page + 1, true)}
+            >
+              {loadingMore ? 'Loading...' : `Load More (${orders.length} of ${totalCount})`}
+            </Button>
           </div>
         )}
       </div>

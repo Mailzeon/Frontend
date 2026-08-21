@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { disconnectSocket } from '@/lib/socket';
+import { setAuthToken, clearAuthToken } from '@/lib/authToken';
 
 export interface AuthUser {
   _id:         string;
@@ -27,19 +28,22 @@ interface AuthState {
   isAuthenticated: boolean;
   _hasHydrated:    boolean;
 
-  setAuth:     (user: AuthUser) => void;
+  setAuth:     (user: AuthUser, token?: string) => void;
   clearAuth:   () => void;
   updateUser:  (updates: Partial<AuthUser>) => void;
   setHydrated: () => void;
 }
 
-// NOTE (httpOnly cookie migration): there is no `token` field here anymore.
-// The real session token now lives ONLY in an httpOnly cookie set by the
-// backend on login/register (see utils/cookies.ts on the backend) — it is
-// never readable by JavaScript, so it can't be stored here even if we
-// wanted to. `mp_role` below is a separate, non-sensitive cookie used only
-// by middleware.ts to decide route access (Next.js Edge middleware can't
-// read localStorage, so it needs *some* cookie to check) — it carries no
+// NOTE (httpOnly cookie migration): there is no `token` field STORED here —
+// the real session token still lives primarily in an httpOnly cookie set
+// by the backend (see utils/cookies.ts on the backend), never readable by
+// JavaScript. setAuth() below optionally also stashes a FALLBACK copy via
+// lib/authToken.ts (sessionStorage, not this Zustand/localStorage store —
+// see that file for exactly why, and the tradeoff involved) for browsers
+// that block the cookie outright as third-party (Safari/Firefox/Brave).
+// `mp_role` below is a separate, non-sensitive cookie used only by
+// middleware.ts to decide route access (Next.js Edge middleware can't read
+// localStorage, so it needs *some* cookie to check) — it carries no
 // secret, just which dashboard to route to.
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -50,11 +54,12 @@ export const useAuthStore = create<AuthState>()(
 
       setHydrated: () => set({ _hasHydrated: true }),
 
-      setAuth: (user) => {
+      setAuth: (user, token) => {
         if (typeof window !== 'undefined') {
           const maxAge = 7 * 24 * 60 * 60;
           document.cookie = `mp_role=${user.role}; path=/; max-age=${maxAge}; SameSite=Lax`;
         }
+        if (token) setAuthToken(token);
         set({ user, isAuthenticated: true });
       },
 
@@ -62,6 +67,7 @@ export const useAuthStore = create<AuthState>()(
         if (typeof window !== 'undefined') {
           document.cookie = 'mp_role=; path=/; max-age=0';
         }
+        clearAuthToken();
         disconnectSocket();
         set({ user: null, isAuthenticated: false });
       },

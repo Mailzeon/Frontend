@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getAuthToken, clearAuthToken } from './authToken';
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
@@ -28,6 +29,24 @@ export const api = axios.create({
 // request because of `withCredentials: true` above. There is no JS-readable
 // token to read from localStorage anymore (that was the XSS exposure this
 // migration removes).
+
+// NOTE: the primary session token lives in an httpOnly cookie (set by the
+// backend on login/register), attached automatically via `withCredentials:
+// true` above — no request interceptor needed for that. This one IS
+// needed for the fallback: see lib/authToken.ts for why the cookie alone
+// isn't always enough (Safari/Firefox/Brave block it as third-party) and
+// attaches the fallback token as a Bearer header whenever one is held.
+// Completely harmless to send even when the cookie worked fine — the
+// backend just checks the cookie first and ignores this header entirely
+// when it's already authenticated that way.
+api.interceptors.request.use((config) => {
+  const token = getAuthToken();
+  if (token) {
+    config.headers = config.headers ?? {};
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
 // ─── Response interceptor — handle auth errors + cold-start retry ─────────────
 // NEW: automatically retries ONCE on a timeout or network error (never on
@@ -59,6 +78,7 @@ api.interceptors.response.use(
       // it'll keep failing auth checks harmlessly until it's overwritten by
       // a fresh login.
       localStorage.removeItem('mp_auth-storage'); // Zustand persist key
+      clearAuthToken(); // fallback Bearer token — see lib/authToken.ts
       document.cookie = 'mp_role=; path=/; max-age=0';
       window.location.href = '/login';
     }

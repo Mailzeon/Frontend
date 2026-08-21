@@ -29,8 +29,8 @@ export default function LoginPage() {
       const deviceId = await getDeviceId();
       const { data } = await api.post('/auth/login', { email: email.trim(), password, ...(deviceId ? { deviceId } : {}) });
       if (!data.success) { toast.error(data.message); return; }
-      const { user } = data.data;
-      setAuth(user);
+      const { user, token } = data.data;
+      setAuth(user, token);
       initSocket(user._id, user.role);
       toast.success(`Welcome back, ${user.name}!`);
       router.push(`/${user.role}/dashboard`);

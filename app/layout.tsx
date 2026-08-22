@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter, JetBrains_Mono } from 'next/font/google';
+import Script from 'next/script';
 import { Toaster } from '@/components/ui/toast';
 import { InstallPrompt } from '@/components/shared/InstallPrompt';
 import { ServiceWorkerRegister } from '@/components/shared/ServiceWorkerRegister';
@@ -39,6 +40,14 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Loads harmlessly outside Telegram — window.Telegram simply never
+            appears on a normal browser visit, so nothing here changes
+            behavior for the website. beforeInteractive so it's ready before
+            our own code ever checks isTelegramMiniApp() (see
+            lib/telegram.ts, called directly from app/telegram/page.tsx). */}
+        <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
+      </head>
       <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans bg-[#08080D] text-gray-100 antialiased`}>
         {children}
         <ServiceWorkerRegister />

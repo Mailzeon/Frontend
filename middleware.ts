@@ -8,6 +8,12 @@ import { NextRequest, NextResponse } from 'next/server';
 const PUBLIC_PATHS = [
   '/login', '/register', '/contact', '/terms', '/refund-policy', '/pricing',
   '/forgot-password', '/reset-password',
+  // NEW — Telegram Mini App entry point. Must stay public: a Telegram user
+  // has no `mp_role` cookie yet on their very first open (nothing has
+  // logged them in yet), so this page needs to load BEFORE any redirect-
+  // to-login happens, run its own initData-based check, and only THEN
+  // auto-authenticate via initData. See app/telegram/page.tsx.
+  '/telegram',
 ];
 
 export function middleware(req: NextRequest) {

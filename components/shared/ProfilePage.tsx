@@ -54,12 +54,23 @@ export function ProfilePage({ showPaymentDetails = false }: ProfilePageProps) {
     }
   };
 
+  // Telegram-origin accounts get an internal placeholder email (see
+  // backend auth.service.ts telegramLogin()) — showing that raw string as
+  // if it were a real, user-set email is confusing ("why do I have this
+  // random address?"). Treated everywhere below as if the email field is
+  // simply empty, inviting them to set a real one.
+  const isPlaceholderTelegramEmail = (email?: string): boolean =>
+    !!email && /^tg_\d+@telegram\.mailzeon\.internal$/.test(email);
+  const hasNoRealEmail = isPlaceholderTelegramEmail(user?.email);
+
   // ── Profile info form ─────────────────────────────────────────────────────
   const [name, setName]           = useState(user?.name ?? '');
   // NEW: email is now editable — it used to be permanently locked, but
   // that left anyone whose email failed verification with no way to fix
-  // it. Re-verified on every change (see saveProfile()).
-  const [email, setEmail]         = useState(user?.email ?? '');
+  // it. Re-verified on every change (see saveProfile()). Starts blank
+  // (not the raw placeholder) for a Telegram-origin account with no real
+  // email set yet — see hasNoRealEmail above.
+  const [email, setEmail]         = useState(hasNoRealEmail ? '' : (user?.email ?? ''));
   // NEW: phone — required by Cashfree before a customer can place an order.
   // Editable here so it can be set up-front instead of only at checkout time.
   const [phone, setPhone]         = useState(user?.phone ?? '');
@@ -313,25 +324,32 @@ export function ProfilePage({ showPaymentDetails = false }: ProfilePageProps) {
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label>Email address</Label>
-              {user?.emailVerificationStatus === 'valid' && (
+              {hasNoRealEmail && (
+                <span className="text-[10px] font-semibold text-purple-300 px-1.5 py-0.5 rounded bg-purple-500/10 border border-purple-500/20">
+                  No email set — Telegram account
+                </span>
+              )}
+              {!hasNoRealEmail && user?.emailVerificationStatus === 'valid' && (
                 <span className="text-[10px] font-semibold text-green-400 px-1.5 py-0.5 rounded bg-green-500/10 border border-green-500/20">
                   ✓ Verified
                 </span>
               )}
-              {user?.emailVerificationStatus === 'invalid' && (
+              {!hasNoRealEmail && user?.emailVerificationStatus === 'invalid' && (
                 <span className="text-[10px] font-semibold text-red-400 px-1.5 py-0.5 rounded bg-red-500/10 border border-red-500/20">
                   ⛔ Doesn't exist
                 </span>
               )}
-              {(!user?.emailVerificationStatus || user?.emailVerificationStatus === 'unknown') && (
+              {!hasNoRealEmail && (!user?.emailVerificationStatus || user?.emailVerificationStatus === 'unknown') && (
                 <span className="text-[10px] font-semibold text-yellow-400 px-1.5 py-0.5 rounded bg-yellow-500/10 border border-yellow-500/20">
                   Not confirmed
                 </span>
               )}
             </div>
-            <Input type="email" value={email} onChange={e => setEmail(e.target.value)} />
+            <Input type="email" placeholder={hasNoRealEmail ? 'you@example.com' : undefined} value={email} onChange={e => setEmail(e.target.value)} />
             <p className="text-xs text-gray-500">
-              {user?.emailVerificationStatus === 'invalid'
+              {hasNoRealEmail
+                ? "You signed up via Telegram, so there's no email on file yet. Add one to enable email notifications and account recovery."
+                : user?.emailVerificationStatus === 'invalid'
                 ? "This address doesn't appear to exist — please update it, or you won't be able to place or accept orders."
                 : 'This is your login email. Changing it will re-verify it.'}
             </p>

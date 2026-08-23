@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { getAuthToken, clearAuthToken } from './authToken';
+import { isTelegramMiniApp } from './telegram';
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
@@ -71,7 +72,23 @@ api.interceptors.response.use(
       }
     }
 
-    if (error.response?.status === 401 && typeof window !== 'undefined') {
+    // BUG FIX (Aug 2026): this used to fire on ANY 401, app-wide — including
+    // from login/register/telegram-link attempts THEMSELVES, where a 401
+    // just means "wrong password" and is normal, expected, locally-handled
+    // validation, not a sign the user's actual session died. That made a
+    // wrong password on the Telegram in-app "link my account" form hard-
+    // redirect the whole Telegram Mini App WebView to the full standalone
+    // /login page — breaking out of the Mini App experience entirely,
+    // right in the middle of what should have been a small inline retry.
+    // Auth-attempt endpoints handle their own 401s locally (see each
+    // page's own catch block) and must never trigger this global redirect.
+    const AUTH_ATTEMPT_PATHS = [
+      '/auth/login', '/auth/register',
+      '/auth/telegram', '/auth/telegram/check', '/auth/telegram/link',
+    ];
+    const isAuthAttempt = AUTH_ATTEMPT_PATHS.some(p => (config?.url || '').includes(p));
+
+    if (error.response?.status === 401 && typeof window !== 'undefined' && !isAuthAttempt) {
       // Clear client-side auth state and redirect to login. The httpOnly
       // cookie itself is cleared server-side by /auth/logout (called from
       // the Sidebar sign-out handler) — if it's simply expired/invalid,
@@ -80,7 +97,11 @@ api.interceptors.response.use(
       localStorage.removeItem('mp_auth-storage'); // Zustand persist key
       clearAuthToken(); // fallback Bearer token — see lib/authToken.ts
       document.cookie = 'mp_role=; path=/; max-age=0';
-      window.location.href = '/login';
+      // Inside the Telegram Mini App, /login is a dead end (nobody there
+      // has a password they know) — send them back to /telegram instead,
+      // which re-runs the initData flow. See Sidebar.tsx's logout handler
+      // for the same isTelegramMiniApp() pattern.
+      window.location.href = isTelegramMiniApp() ? '/telegram' : '/login';
     }
     return Promise.reject(error);
   }

@@ -11,6 +11,7 @@ import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { useUIStore } from '@/store/uiStore';
 import { toast } from '@/components/ui/toast';
+import { isTelegramMiniApp } from '@/lib/telegram';
 
 interface NavItem { href: string; label: string; Icon: React.ElementType; }
 
@@ -65,7 +66,12 @@ export function Sidebar() {
     await api.post('/auth/logout').catch(() => {});
     clearAuth();
     toast.info('Signed out.');
-    router.push('/login');
+    // Inside the Telegram Mini App, /login expects a password nobody
+    // Telegram-origin has ever set — send them back to /telegram instead,
+    // which re-runs the initData flow (see app/telegram/page.tsx) and
+    // offers a "Continue as [You]" / "use a different account" choice,
+    // rather than a dead-end password form.
+    router.push(isTelegramMiniApp() ? '/telegram' : '/login');
   };
 
   return (

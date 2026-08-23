@@ -49,6 +49,18 @@ export const getTelegramInitData = (): string | null => {
   return getTelegramWebApp()?.initData || null;
 };
 
+// Telegram's own copy of the user's name/photo, straight from initData —
+// used only for the "Continue as..." confirmation screen (app/telegram/
+// page.tsx) before the backend check resolves. This is NOT trusted for
+// anything security-relevant (initDataUnsafe is exactly that — unsafe,
+// unverified client-side data); the actual login always re-verifies the
+// signed initData string server-side (see utils/telegramAuth.ts).
+export const getTelegramUser = (): { firstName: string; photoUrl?: string } | null => {
+  const u = getTelegramWebApp()?.initDataUnsafe?.user;
+  if (!u) return null;
+  return { firstName: u.first_name, photoUrl: u.photo_url };
+};
+
 // Called once on the /telegram entry page — expands the WebView to full
 // height (otherwise Telegram opens it as a half-height sheet) and signals
 // to Telegram that the app has finished loading its initial UI.

@@ -75,7 +75,11 @@ export default function ForgotPasswordPage() {
             </form>
           )}
 
-          <div className="mt-4 text-center">
+          <div className="mt-4 text-center space-y-3">
+            <p className="text-xs text-gray-600">
+              Signed up via the Mailzeon Telegram bot? Just reopen it in Telegram to log back in —
+              no password needed.
+            </p>
             <Link href="/login" className="text-sm text-gray-400 hover:text-white inline-flex items-center gap-1.5">
               <ArrowLeft className="w-3.5 h-3.5" />
               Back to login

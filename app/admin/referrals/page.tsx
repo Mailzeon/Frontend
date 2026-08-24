@@ -7,7 +7,7 @@ import { api } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/utils';
 
 interface ReferralGroup {
-  referrer: { _id: string; name: string; email: string; referralCode: string };
+  referrer: { _id: string; name: string; email: string; role: 'worker' | 'customer'; referralCode: string };
   referredCount: number;
   referred: { name: string; createdAt: string }[];
   totalPaid: number;
@@ -35,7 +35,7 @@ export default function AdminReferralsPage() {
       <div>
         <h1 className="text-2xl font-bold text-white">Referrals</h1>
         <p className="text-gray-400 text-sm mt-0.5">
-          Every worker who's referred someone, and what's been paid out so far
+          Every worker or customer who's referred someone, and what's been paid out so far — covers both independent referral programs
         </p>
       </div>
 
@@ -70,7 +70,16 @@ export default function AdminReferralsPage() {
               <div key={g.referrer._id} className="p-4 space-y-2">
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div>
-                    <p className="text-sm font-semibold text-white">{g.referrer.name}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-white">{g.referrer.name}</p>
+                      <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${
+                        g.referrer.role === 'worker'
+                          ? 'text-blue-400 bg-blue-500/10 border-blue-500/20'
+                          : 'text-purple-400 bg-purple-500/10 border-purple-500/20'
+                      }`}>
+                        {g.referrer.role === 'worker' ? 'Worker' : 'Customer'}
+                      </span>
+                    </div>
                     <p className="text-xs text-gray-500">{g.referrer.email} · code {g.referrer.referralCode}</p>
                   </div>
                   <div className="text-right">

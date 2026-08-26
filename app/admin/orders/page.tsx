@@ -218,7 +218,14 @@ export default function AdminOrdersPage() {
               {filtered.map(o => (
                 <tr key={o._id} className="hover:bg-white/[0.05] transition-colors">
                   <td className="px-4 py-3 font-mono text-gray-400 text-xs">{shortId(o._id)}</td>
-                  <td className="px-4 py-3 text-white font-medium max-w-[150px] truncate">{o.serviceName}</td>
+                  <td className="px-4 py-3 text-white font-medium max-w-[150px] truncate">
+                    {o.serviceName}
+                    {o.batchId && (
+                      <span className="ml-1.5 text-[10px] font-semibold text-purple-400 px-1 py-0.5 rounded bg-purple-500/10 border border-purple-500/20 align-middle">
+                        Bulk
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-gray-400">{o.customerId?.name ?? '—'}</td>
                   <td className="px-4 py-3 text-gray-400">{o.workerId?.name ?? '—'}</td>
                   <td className="px-4 py-3 text-gray-300">{formatCurrency(o.amount)}</td>

@@ -1,6 +1,7 @@
 'use client';
-import { useState, useEffect } from 'react';
-import { ShoppingBag, Plus } from 'lucide-react';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { ShoppingBag, Plus, Loader2 } from 'lucide-react';
 import { OrderStatusBadge } from '@/components/shared/OrderStatusBadge';
 import { CreateOrderModal } from '@/components/shared/CreateOrderModal';
 import { Button } from '@/components/ui/button';
@@ -11,10 +12,13 @@ import { shortId, timeAgo, formatCurrency } from '@/lib/utils';
 import { Order } from '@/types';
 import Link from 'next/link';
 
-export default function CustomerOrdersPage() {
+function CustomerOrdersInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [orders, setOrders]     = useState<Order[]>([]);
   const [loading, setLoading]   = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [verifyingBatch, setVerifyingBatch] = useState(false);
 
   const fetchOrders = async () => {
     try {
@@ -23,6 +27,38 @@ export default function CustomerOrdersPage() {
     } catch { toast.error('Failed to load orders.'); }
     finally { setLoading(false); }
   };
+
+  // Bulk order batches redirect back here (not a single order's detail
+  // page) after Cashfree checkout — `?batch=<id>&payment=return` — since
+  // one batch payment produces N separate orders, not one. See
+  // CreateOrderModal.tsx / order.service.ts createBulkOrder() for where
+  // this return path gets set.
+  useEffect(() => {
+    const batchId = searchParams.get('batch');
+    const isPaymentReturn = searchParams.get('payment') === 'return';
+    if (!batchId || !isPaymentReturn) return;
+
+    const verify = async () => {
+      setVerifyingBatch(true);
+      try {
+        const { data } = await api.get(`/payments/verify-batch/${batchId}`);
+        if (data.success && data.data.status === 'completed') {
+          toast.success(`Payment confirmed — ${data.data.quantity} orders are now live in the marketplace!`);
+        } else if (data.success && data.data.status === 'payment_failed') {
+          toast.error('That payment did not go through. You can place a new order to try again.');
+        }
+      } catch {
+        // Non-fatal — the webhook may still resolve it; we just refetch below.
+      } finally {
+        // Strip the query params so a page refresh doesn't re-trigger this.
+        router.replace('/customer/orders');
+        await fetchOrders();
+        setVerifyingBatch(false);
+      }
+    };
+    verify();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => { fetchOrders(); }, []);
 
@@ -37,6 +73,12 @@ export default function CustomerOrdersPage() {
           <Plus className="w-4 h-4 mr-2" /> New Order
         </Button>
       </div>
+
+      {verifyingBatch && (
+        <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center gap-2.5 text-sm text-purple-300">
+          <Loader2 className="w-4 h-4 animate-spin" /> Confirming your bulk order payment...
+        </div>
+      )}
 
       <div className="glass-card overflow-hidden">
         {loading ? (
@@ -77,5 +119,16 @@ export default function CustomerOrdersPage() {
 
       <CreateOrderModal open={showModal} onOpenChange={setShowModal} onOrderCreated={fetchOrders} />
     </div>
+  );
+}
+
+// useSearchParams() (used above to read ?batch=/&payment=return) requires
+// a Suspense boundary in the App Router — same pattern as the order detail
+// page and the register page.
+export default function CustomerOrdersPage() {
+  return (
+    <Suspense fallback={null}>
+      <CustomerOrdersInner />
+    </Suspense>
   );
 }

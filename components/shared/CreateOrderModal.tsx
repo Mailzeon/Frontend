@@ -10,7 +10,7 @@
  * only one place to ever fix or extend this form again.
  */
 import { useState, useEffect } from 'react';
-import { Shuffle, Edit3, Check, IndianRupee, Phone, Loader2, XCircle, AlertTriangle } from 'lucide-react';
+import { Shuffle, Edit3, Check, IndianRupee, Phone, Loader2, XCircle, AlertTriangle, Layers, ShoppingBag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -45,6 +45,18 @@ export function CreateOrderModal({ open, onOpenChange, onOrderCreated }: CreateO
   const [walletBalance, setWalletBalance] = useState(0);
   const [useWalletCredit, setUseWalletCredit] = useState(false);
 
+  // ── Bulk ordering ──────────────────────────────────────────────────────
+  // Same service/domain/email-type/price for every account in the batch —
+  // only the QUANTITY (random) or the LIST of custom names (custom)
+  // varies per account. Each becomes its own fully independent order on
+  // the backend (see order.service.ts createBulkOrder()) — this toggle
+  // only changes how the FORM collects the input, not what gets created.
+  const [bulkMode, setBulkMode]   = useState(false);
+  const [quantity, setQuantity]   = useState('');
+  // One name per line — parsed on submit, not on every keystroke, so a
+  // customer mid-typing a line doesn't see the count/validation flicker.
+  const [bulkNames, setBulkNames] = useState('');
+
   // Pre-payment "Check" button state for custom emails. `checkedFor`
   // remembers exactly which domain+name combo the result belongs to, so if
   // the customer edits the name after checking, the stale ✓/✗ badge is
@@ -76,14 +88,29 @@ export function CreateOrderModal({ open, onOpenChange, onOrderCreated }: CreateO
     if (!v) resetModal();
   };
 
-  const canUseWalletCredit = walletBalance > 0 && Number(amount) > 0;
-  const walletAmountToApply = canUseWalletCredit ? Math.min(walletBalance, Number(amount) || 0) : 0;
-  const remainingToPay = Math.max(0, (Number(amount) || 0) - (useWalletCredit ? walletAmountToApply : 0));
+  const parsedBulkNames = bulkNames
+    .split(/[\n,]/)
+    .map(n => n.trim().toLowerCase())
+    .filter(Boolean);
+  // Custom bulk mode derives quantity straight from however many names were
+  // typed — no separate quantity field to keep in sync with the list (and
+  // no chance of the two disagreeing). Random bulk mode has no list to
+  // count, so it needs its own quantity input.
+  const numQuantity = bulkMode && emailType === 'custom' ? parsedBulkNames.length : Number(quantity) || 0;
+
+  // Bulk mode charges against the TOTAL (amount × quantity), not the
+  // per-account amount — everything downstream (wallet toggle, the "Pay
+  // ₹X" button label) needs to reflect what actually gets charged.
+  const effectiveTotal = bulkMode ? (Number(amount) || 0) * numQuantity : (Number(amount) || 0);
+  const canUseWalletCredit = walletBalance > 0 && effectiveTotal > 0;
+  const walletAmountToApply = canUseWalletCredit ? Math.min(walletBalance, effectiveTotal) : 0;
+  const remainingToPay = Math.max(0, effectiveTotal - (useWalletCredit ? walletAmountToApply : 0));
 
   const resetModal = () => {
     setService(''); setDomain(''); setEmailType('random'); setCustomLocal('');
     setAmount(''); setUseWalletCredit(false);
     setCheckStatus('idle'); setCheckedFor(null);
+    setBulkMode(false); setQuantity(''); setBulkNames('');
   };
 
   const currentCombo = domain && customLocal.trim() ? `${customLocal.trim().toLowerCase()}@${domain}` : null;
@@ -108,16 +135,34 @@ export function CreateOrderModal({ open, onOpenChange, onOrderCreated }: CreateO
     e.preventDefault();
     if (!service.trim()) { toast.error('Enter a service name.'); return; }
     if (!domain) { toast.error('Select an email domain.'); return; }
-    if (emailType === 'custom' && !customLocal.trim()) { toast.error('Enter your custom email name.'); return; }
-    if (emailType === 'custom' && (!isCheckedForCurrent || checkStatus === 'taken')) {
+
+    if (!bulkMode && emailType === 'custom' && !customLocal.trim()) { toast.error('Enter your custom email name.'); return; }
+    if (!bulkMode && emailType === 'custom' && (!isCheckedForCurrent || checkStatus === 'taken')) {
       toast.error(checkStatus === 'taken'
         ? 'This email is already taken — choose a different name.'
         : 'Click "Check" to verify this email is available before paying.');
       return;
     }
+
+    if (bulkMode) {
+      if (numQuantity < 2) {
+        toast.error(emailType === 'custom'
+          ? 'Enter at least 2 names, one per line, for a bulk custom order.'
+          : 'Enter a quantity of at least 2 for bulk orders.');
+        return;
+      }
+      if (emailType === 'custom') {
+        const dupes = parsedBulkNames.filter((n, i) => parsedBulkNames.indexOf(n) !== i);
+        if (dupes.length > 0) {
+          toast.error(`Duplicate names: ${Array.from(new Set(dupes)).join(', ')} — each account needs a unique name.`);
+          return;
+        }
+      }
+    }
+
     const numAmount = Number(amount);
     if (!amount || isNaN(numAmount) || numAmount < minimumOrderAmount) {
-      toast.error(`Minimum order amount is ₹${minimumOrderAmount}.`);
+      toast.error(`Minimum amount is ₹${minimumOrderAmount}${bulkMode ? ' per account' : ''}.`);
       return;
     }
     // Phone is now mandatory + verified at registration/profile level (see
@@ -131,36 +176,50 @@ export function CreateOrderModal({ open, onOpenChange, onOrderCreated }: CreateO
 
     setCreating(true);
     try {
-      const { data } = await api.post('/orders', {
-        serviceName: service,
-        domain,
-        emailType,
-        customLocalPart: emailType === 'custom' ? customLocal.trim() : undefined,
-        amount: numAmount,
-        ...(canUseWalletCredit && useWalletCredit ? { useWalletCredit: true } : {}),
-      });
+      const { data } = bulkMode
+        ? await api.post('/orders/bulk', {
+            serviceName: service,
+            domain,
+            emailType,
+            quantity: numQuantity,
+            customLocalParts: emailType === 'custom' ? parsedBulkNames : undefined,
+            amount: numAmount,
+            ...(canUseWalletCredit && useWalletCredit ? { useWalletCredit: true } : {}),
+          })
+        : await api.post('/orders', {
+            serviceName: service,
+            domain,
+            emailType,
+            customLocalPart: emailType === 'custom' ? customLocal.trim() : undefined,
+            amount: numAmount,
+            ...(canUseWalletCredit && useWalletCredit ? { useWalletCredit: true } : {}),
+          });
 
       if (data.success) {
         if (data.data.paidWithWallet) {
           // Fully covered by wallet credit — no Cashfree redirect needed,
-          // the order is already live in the marketplace.
-          toast.success('Paid with wallet credit! Your order is live in the marketplace.');
+          // the order(s) are already live in the marketplace.
+          toast.success(bulkMode
+            ? `Paid with wallet credit! Your ${numQuantity} orders are live in the marketplace.`
+            : 'Paid with wallet credit! Your order is live in the marketplace.');
           onOpenChange(false);
           resetModal();
           setCreating(false);
           onOrderCreated();
         } else {
           if (data.data.walletAmountApplied > 0) {
-            toast.info(`${formatCurrency(data.data.walletAmountApplied)} wallet credit applied — complete the rest to publish your order.`);
+            toast.info(`${formatCurrency(data.data.walletAmountApplied)} wallet credit applied — complete the rest to publish your order${bulkMode ? 's' : ''}.`);
           } else {
             toast.success('Redirecting to payment…');
           }
-          // Order is created but NOT yet in the marketplace — it only becomes
-          // visible to workers once Cashfree confirms the payment succeeded.
+          // Order(s) created but NOT yet in the marketplace — they only
+          // become visible to workers once Cashfree confirms payment.
+          // Cashfree's return_url was already set server-side to the right
+          // destination for bulk vs single (see order.service.ts
+          // createBulkOrder() / payment.service.ts createCashfreeOrder()) —
+          // bulk batches land back on the orders LIST, not a single order's
+          // detail page, since N separate orders result from one payment.
           await openCashfreeCheckout(data.data.paymentSessionId);
-          // openCashfreeCheckout navigates the browser away to Cashfree's
-          // hosted page — code after this line does not run until the
-          // customer is redirected back (handled on the order detail page).
         }
       }
     } catch (err: any) {
@@ -184,9 +243,42 @@ export function CreateOrderModal({ open, onOpenChange, onOrderCreated }: CreateO
               onChange={e => setService(e.target.value)} autoFocus />
           </div>
 
+          {/* Bulk ordering toggle — same service/domain/price for every
+              account, only quantity (random) or the list of names (custom)
+              differs. Each becomes its own fully independent order on the
+              backend (see order.service.ts createBulkOrder()). */}
+          <button
+            type="button"
+            onClick={() => setBulkMode(v => !v)}
+            className={cn(
+              'w-full flex items-center gap-3 p-3 rounded-xl border transition-colors text-left',
+              bulkMode ? 'border-purple-500 bg-purple-600/10' : 'border-white/[0.06] hover:border-white/[0.15]'
+            )}
+          >
+            <div className={cn(
+              'w-9 h-9 rounded-lg flex items-center justify-center shrink-0',
+              bulkMode ? 'bg-purple-500/20' : 'bg-white/[0.05]'
+            )}>
+              <Layers className={cn('w-4 h-4', bulkMode ? 'text-purple-400' : 'text-gray-500')} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className={cn('text-sm font-medium', bulkMode ? 'text-white' : 'text-gray-300')}>Bulk order</p>
+              <p className="text-xs text-gray-500">Order multiple accounts at once — each is placed separately in the marketplace</p>
+            </div>
+            <div className={cn(
+              'shrink-0 w-11 h-6 rounded-full transition-colors relative',
+              bulkMode ? 'bg-purple-500' : 'bg-white/[0.12]'
+            )}>
+              <span className={cn(
+                'absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform',
+                bulkMode ? 'translate-x-[22px]' : 'translate-x-0.5'
+              )} />
+            </div>
+          </button>
+
           <div className="space-y-1.5">
             <Label className="flex items-center gap-1.5">
-              <IndianRupee className="w-3.5 h-3.5" /> Order amount
+              <IndianRupee className="w-3.5 h-3.5" /> {bulkMode ? 'Amount per account' : 'Order amount'}
             </Label>
             <Input
               type="number"
@@ -196,9 +288,31 @@ export function CreateOrderModal({ open, onOpenChange, onOrderCreated }: CreateO
               onChange={e => setAmount(e.target.value)}
             />
             <p className="text-xs text-gray-500">
-              {100 - platformCommissionRate}% goes to the worker who completes your order, {platformCommissionRate}% is the platform fee.
+              {100 - platformCommissionRate}% goes to the worker who completes {bulkMode ? 'each' : 'your'} order, {platformCommissionRate}% is the platform fee.
             </p>
           </div>
+
+          {bulkMode && emailType === 'random' && (
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5">
+                <ShoppingBag className="w-3.5 h-3.5" /> Quantity
+              </Label>
+              <Input
+                type="number"
+                min={2}
+                placeholder="e.g. 20"
+                value={quantity}
+                onChange={e => setQuantity(e.target.value)}
+              />
+            </div>
+          )}
+
+          {bulkMode && numQuantity >= 2 && Number(amount) > 0 && (
+            <div className="p-3 rounded-xl bg-purple-500/5 border border-purple-500/20 flex items-center justify-between">
+              <span className="text-sm text-gray-300">{numQuantity} accounts × {formatCurrency(Number(amount))}</span>
+              <span className="text-sm font-semibold text-white">{formatCurrency(effectiveTotal)} total</span>
+            </div>
+          )}
 
           {walletBalance > 0 && (
             <div className={cn(
@@ -208,8 +322,8 @@ export function CreateOrderModal({ open, onOpenChange, onOrderCreated }: CreateO
               <div>
                 <p className="text-sm text-white font-medium">Wallet credit: {formatCurrency(walletBalance)}</p>
                 <p className="text-xs text-gray-500">
-                  {walletAmountToApply >= (Number(amount) || 0) && Number(amount) > 0
-                    ? 'Covers this order fully — no payment needed!'
+                  {walletAmountToApply >= effectiveTotal && effectiveTotal > 0
+                    ? `Covers ${bulkMode ? 'this batch' : 'this order'} fully — no payment needed!`
                     : `Apply ${formatCurrency(walletAmountToApply)} — pay ${formatCurrency(remainingToPay)} via Cashfree for the rest.`}
                 </p>
               </div>
@@ -275,7 +389,7 @@ export function CreateOrderModal({ open, onOpenChange, onOrderCreated }: CreateO
             </div>
           </div>
 
-          {emailType === 'custom' && (
+          {emailType === 'custom' && !bulkMode && (
             <div className="space-y-1.5">
               <Label>Custom email name</Label>
               <div className="flex items-center gap-2">
@@ -318,6 +432,24 @@ export function CreateOrderModal({ open, onOpenChange, onOrderCreated }: CreateO
             </div>
           )}
 
+          {emailType === 'custom' && bulkMode && (
+            <div className="space-y-1.5">
+              <Label>Custom email names — one per line</Label>
+              <textarea
+                placeholder={`shopfront1\nshopfront2\nshopfront3`}
+                value={bulkNames}
+                onChange={e => setBulkNames(e.target.value)}
+                rows={5}
+                className="w-full px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.08] text-white placeholder:text-gray-600 text-sm font-mono focus:outline-none focus:border-purple-500/50 resize-y"
+              />
+              <p className="text-xs text-gray-500">
+                {parsedBulkNames.length > 0
+                  ? `${parsedBulkNames.length} name${parsedBulkNames.length !== 1 ? 's' : ''} entered — each becomes its own @${domain || '...'} order. Availability is checked when you pay.`
+                  : `One name per line — each becomes its own @${domain || '...'} order.`}
+              </p>
+            </div>
+          )}
+
           {previewEmail && (
             <div className="p-3 rounded-xl bg-white/[0.05] text-sm">
               <span className="text-gray-500">Email to be created: </span>
@@ -345,13 +477,19 @@ export function CreateOrderModal({ open, onOpenChange, onOrderCreated }: CreateO
             <Button
               type="submit"
               loading={creating}
-              disabled={!user?.phoneVerified || (emailType === 'custom' && (!isCheckedForCurrent || checkStatus === 'taken'))}
+              disabled={
+                !user?.phoneVerified ||
+                (!bulkMode && emailType === 'custom' && (!isCheckedForCurrent || checkStatus === 'taken')) ||
+                (bulkMode && numQuantity < 2)
+              }
             >
               {useWalletCredit && canUseWalletCredit
                 ? remainingToPay === 0
-                  ? 'Pay with Wallet Credit & Place Order'
-                  : `Pay ${formatCurrency(remainingToPay)} (Wallet Credit Applied) & Place Order`
-                : amount ? `Pay ${formatCurrency(Number(amount) || 0)} & Place Order` : 'Continue to Payment'}
+                  ? `Pay with Wallet Credit & Place ${bulkMode ? `${numQuantity} Orders` : 'Order'}`
+                  : `Pay ${formatCurrency(remainingToPay)} (Wallet Credit Applied) & Place ${bulkMode ? `${numQuantity} Orders` : 'Order'}`
+                : effectiveTotal > 0
+                  ? `Pay ${formatCurrency(effectiveTotal)} & Place ${bulkMode ? `${numQuantity} Orders` : 'Order'}`
+                  : 'Continue to Payment'}
             </Button>
           </div>
         </form>

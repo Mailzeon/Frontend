@@ -153,7 +153,9 @@ function RegisterContent() {
             {role === 'worker' && (
               <div className="p-3 rounded-xl bg-yellow-500/5 border border-yellow-500/20">
                 <p className="text-xs text-yellow-400">
-                  ⚠️ Worker accounts require admin approval before you can accept orders. You&apos;ll be notified once approved.
+                  ✅ Worker accounts are approved instantly in almost every case. If you&apos;re signing up from a
+                  shared device/network with an existing restriction, approval may be briefly held — it completes
+                  automatically once that restriction ends, no admin action needed.
                 </p>
                 <p className="text-xs text-yellow-400/80 mt-1">
                   You keep {workerEarnLabel} of every order you complete (minimum order is ₹{minimumOrderAmount}).

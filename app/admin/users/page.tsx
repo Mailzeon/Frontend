@@ -9,6 +9,11 @@ import { toast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
 import { formatDate, cn } from '@/lib/utils';
 
+// Mirrors backend utils/permanentLock.ts's PERMANENT_LOCK_DATE convention
+// (year 9999) — same helper as app/admin/users/[id]/page.tsx.
+const isPermanentLockDate = (date: string | Date) =>
+  new Date(date).getFullYear() > new Date().getFullYear() + 50;
+
 const LEVEL_COLOR: Record<string, string> = { bronze: 'text-amber-500', silver: 'text-gray-300', gold: 'text-yellow-400' };
 
 export default function AdminUsersPage() {
@@ -55,12 +60,16 @@ export default function AdminUsersPage() {
     u.email.toLowerCase().includes(search.toLowerCase())
   );
 
-  // Three real states now instead of just isApproved true/false — lets the
+  // Four real states now instead of just isApproved true/false — lets the
   // list (and the action button) tell a brand-new worker apart from one an
-  // admin deliberately suspended, instead of showing "Pending" + "Approve"
-  // for both.
-  const workerStatus = (u: any): 'pending' | 'approved' | 'suspended' =>
-    u.isApproved ? 'approved' : u.wasEverApproved ? 'suspended' : 'pending';
+  // admin deliberately suspended, AND tell "genuinely stuck, needs a human"
+  // apart from "auto-approves on its own once the inherited lock ends" —
+  // see hooks/useLockStatus.ts / auth.service.ts for the held-pending flow.
+  const workerStatus = (u: any): 'pending' | 'held' | 'approved' | 'suspended' =>
+    u.isApproved ? 'approved'
+    : u.wasEverApproved ? 'suspended'
+    : (u.lockedUntil && new Date(u.lockedUntil) > new Date() && !isPermanentLockDate(u.lockedUntil)) ? 'held'
+    : 'pending';
 
   return (
     <div className="space-y-5">
@@ -142,6 +151,7 @@ export default function AdminUsersPage() {
                       <div className="flex items-center gap-1.5">
                         {u.isOnline && <span className="w-2 h-2 rounded-full bg-green-400" title="Online" />}
                         {workerStatus(u) === 'approved' && <span className="text-green-400 text-xs">✓ Approved</span>}
+                        {workerStatus(u) === 'held' && <span className="text-yellow-400 text-xs" title="Auto-approves once the shared device/network restriction ends">⏳ Held (auto)</span>}
                         {workerStatus(u) === 'pending' && <span className="text-yellow-400 text-xs">⏳ Pending</span>}
                         {workerStatus(u) === 'suspended' && <span className="text-red-400 text-xs">⛔ Suspended</span>}
                       </div>

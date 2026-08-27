@@ -28,15 +28,11 @@ function RegisterContent() {
   const [show, setShow]         = useState(false);
   const [loading, setLoading]   = useState(false);
 
-  // A ?ref= link can now come from EITHER a worker OR a customer sharing
-  // their own code (two independent referral programs — see backend
-  // auth.service.ts register()). We can't know which without an API call,
-  // so we no longer force the role picker — the person just picks
-  // whichever role they actually want, and the backend silently resolves
-  // (or silently drops, if the code doesn't match a referrer of that
-  // role) the referral relationship based on the role they end up
-  // choosing. This keeps a customer's own referral link from accidentally
-  // signing someone up as a worker just because they clicked it.
+  // A ?ref= link can come from a worker OR a customer sharing their own
+  // code, and (as of the cross-role referral change) it resolves against
+  // EITHER role the new person picks — there's no "wrong" role to choose
+  // anymore, so we don't force or steer the role picker at all here; the
+  // backend links it regardless (see auth.service.ts register()).
   const referralCode = searchParams.get('ref')?.trim() || '';
 
   useEffect(() => { fetchSettings(); }, []);
@@ -100,7 +96,7 @@ function RegisterContent() {
             <div className="flex items-center gap-2.5 p-3 rounded-xl bg-purple-500/10 border border-purple-500/20 mb-5">
               <Gift className="w-4 h-4 text-purple-400 shrink-0" />
               <p className="text-xs text-purple-300">
-                You're signing up with a referral link — pick the role below that matches how you were invited.
+                You're signing up with a referral link — pick whichever role you actually want below, it's linked either way.
               </p>
             </div>
           )}

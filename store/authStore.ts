@@ -21,6 +21,11 @@ export interface AuthUser {
   // Dispute-strike penalty system — see backend user.service.ts applyStrike().
   strikeCount?:  number;
   lockedUntil?:  string; // ISO date string once serialized over JSON
+  // NEW — distinguishes "never approved yet" (still held, e.g. auto-
+  // approval pending on an inherited lock) from "was approved, then
+  // suspended/banned" — both show isApproved:false, only this tells them
+  // apart. See backend User.model.ts wasEverApproved comment.
+  wasEverApproved?: boolean;
 }
 
 interface AuthState {

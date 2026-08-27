@@ -9,11 +9,11 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 import { useSettingsStore } from '@/store/settingsStore';
 
 export default function WorkerReferralPage() {
-  const { referralTaxRate, fetchSettings } = useSettingsStore();
+  const { referralTaxRate, customerReferralBonusRate, fetchSettings } = useSettingsStore();
   const [data, setData] = useState<{
     referralCode: string;
     totalEarned: number;
-    referred: { name: string; joinedAt: string; completedOrders: number }[];
+    referred: { name: string; role: 'worker' | 'customer'; joinedAt: string; completedOrders: number }[];
   } | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -45,7 +45,7 @@ export default function WorkerReferralPage() {
       <div>
         <h1 className="text-2xl font-bold text-white tracking-tight">Refer & Earn</h1>
         <p className="text-gray-400 text-sm mt-0.5">
-          Invite other workers — earn a share of their earnings on every order they complete
+          Invite anyone to Mailzeon — earn on every order they complete or place, whether they join as a worker or a customer
         </p>
       </div>
 
@@ -68,10 +68,13 @@ export default function WorkerReferralPage() {
               <div className="space-y-1.5">
                 <p className="text-sm font-semibold text-white">How you earn from this</p>
                 <p className="text-sm text-gray-300 leading-relaxed">
-                  Share your link below. When someone signs up as a worker through it, you're
-                  connected for good. From then on, every single order they complete, you
-                  automatically get <span className="text-purple-300 font-semibold">{referralTaxRate}% of what they earn</span> credited
-                  straight to your wallet — not just their first order, <span className="underline decoration-purple-400/50">every order, for as long as they keep working</span>.
+                  Share your link below with anyone. If they sign up as a <span className="text-purple-300 font-semibold">worker</span>, you're
+                  connected for good — every single order they complete, you automatically get{' '}
+                  <span className="text-purple-300 font-semibold">{referralTaxRate}% of what they earn</span> credited
+                  straight to your wallet, <span className="underline decoration-purple-400/50">every order, for as long as they keep working</span>.
+                  If they sign up as a <span className="text-purple-300 font-semibold">customer</span> instead, you get{' '}
+                  <span className="text-purple-300 font-semibold">{customerReferralBonusRate}% of what the worker earns</span> on
+                  every order that customer places — same idea, either way round.
                 </p>
               </div>
             </div>
@@ -100,7 +103,7 @@ export default function WorkerReferralPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <StatCard title="Total Referred"   value={data?.referred.length ?? 0} icon={Users}       color="purple" />
-            <StatCard title="Active Workers"   value={activeCount}                icon={CheckCircle2} color="green"  />
+            <StatCard title="Active Referrals" value={activeCount}                icon={CheckCircle2} color="green"  />
             <StatCard title="Earned From Referrals" value={formatCurrency(data?.totalEarned ?? 0)} icon={IndianRupee} color="green" />
           </div>
 
@@ -118,7 +121,16 @@ export default function WorkerReferralPage() {
                 {data.referred.map((r, i) => (
                   <div key={i} className="flex items-center justify-between px-4 py-3">
                     <div>
-                      <p className="text-sm font-medium text-white">{r.name}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm font-medium text-white">{r.name}</p>
+                        <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border ${
+                          r.role === 'worker'
+                            ? 'text-blue-400 bg-blue-500/10 border-blue-500/20'
+                            : 'text-purple-400 bg-purple-500/10 border-purple-500/20'
+                        }`}>
+                          {r.role === 'worker' ? 'Worker' : 'Customer'}
+                        </span>
+                      </div>
                       <p className="text-xs text-gray-500">Joined {formatDate(r.joinedAt)}</p>
                     </div>
                     <div className="text-right">

@@ -9,7 +9,7 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 interface ReferralGroup {
   referrer: { _id: string; name: string; email: string; role: 'worker' | 'customer'; referralCode: string };
   referredCount: number;
-  referred: { name: string; createdAt: string }[];
+  referred: { name: string; role: 'worker' | 'customer'; createdAt: string }[];
   totalPaid: number;
 }
 
@@ -35,7 +35,7 @@ export default function AdminReferralsPage() {
       <div>
         <h1 className="text-2xl font-bold text-white">Referrals</h1>
         <p className="text-gray-400 text-sm mt-0.5">
-          Every worker or customer who's referred someone, and what's been paid out so far — covers both independent referral programs
+          Every worker or customer who's referred someone, and what's been paid out so far — covers both independent referral programs, now cross-role (a worker can refer a customer and vice versa)
         </p>
       </div>
 
@@ -91,8 +91,16 @@ export default function AdminReferralsPage() {
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {g.referred.map((r, i) => (
-                    <span key={i} className="text-xs px-2 py-1 rounded-lg bg-white/[0.04] text-gray-400">
-                      {r.name} · {formatDate(r.createdAt)}
+                    <span key={i} className="text-xs px-2 py-1 rounded-lg bg-white/[0.04] text-gray-400 flex items-center gap-1.5">
+                      {r.name}
+                      <span className={`text-[9px] font-semibold px-1 py-0.5 rounded border ${
+                        r.role === 'worker'
+                          ? 'text-blue-400 bg-blue-500/10 border-blue-500/20'
+                          : 'text-purple-400 bg-purple-500/10 border-purple-500/20'
+                      }`}>
+                        {r.role === 'worker' ? 'Worker' : 'Customer'}
+                      </span>
+                      · {formatDate(r.createdAt)}
                     </span>
                   ))}
                 </div>

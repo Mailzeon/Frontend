@@ -164,7 +164,13 @@ export default function AdminUserDetailPage() {
                 : user.wasEverApproved ? 'text-red-400 text-xs'
                 : 'text-yellow-400 text-xs'
               }>
-                {user.isApproved ? '✓ Approved' : user.wasEverApproved ? '⛔ Suspended' : '⏳ Pending approval'}
+                {user.isApproved
+                  ? '✓ Approved'
+                  : user.wasEverApproved
+                    ? '⛔ Suspended'
+                    : user.lockedUntil && new Date(user.lockedUntil) > new Date() && !isPermanentLockDate(user.lockedUntil)
+                      ? '⏳ Held (auto-approves when lock ends)'
+                      : '⏳ Pending approval'}
               </span>
             )}
             {isWorker && user.isOnline && <span className="w-2 h-2 rounded-full bg-green-400" title="Online" />}

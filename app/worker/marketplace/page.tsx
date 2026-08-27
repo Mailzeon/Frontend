@@ -43,7 +43,16 @@ export default function WorkerMarketplace() {
   }, [fetchOrders]);
 
   const accept = async (orderId: string) => {
-    if (!user?.isApproved) { toast.error('Your account is pending admin approval.'); return; }
+    if (!user?.isApproved) {
+      toast.error(
+        user?.wasEverApproved
+          ? 'Your account has been suspended.'
+          : isLocked && !isPermanent
+            ? `Your account is temporarily held — auto-approves in ${formattedTime}.`
+            : 'Your account is pending approval.'
+      );
+      return;
+    }
     if (!user?.phoneVerified) { toast.error('Please verify your phone number in your profile before accepting orders.'); return; }
     if (isLocked) {
       toast.error(isPermanent ? 'Your account has been permanently banned.' : `Your account is locked for ${formattedTime} due to a dispute strike.`);
@@ -77,7 +86,16 @@ export default function WorkerMarketplace() {
 
       {!user?.isApproved && (
         <div className="p-4 rounded-xl bg-yellow-500/5 border border-yellow-500/20 text-sm text-yellow-400">
-          ⏳ Your account is pending admin approval. You cannot accept orders until approved.
+          {user?.wasEverApproved ? (
+            <>⛔ Your account has been suspended by an admin. Contact support if you believe this is a mistake.</>
+          ) : isLocked && !isPermanent ? (
+            <>⏳ Your account is temporarily held due to a shared device/network restriction. It will be
+              automatically approved in <strong>{formattedTime}</strong> — no action needed.</>
+          ) : isPermanent ? (
+            <>🚫 Your account could not be approved due to a confirmed policy violation on a linked account.</>
+          ) : (
+            <>⏳ Your account is pending approval. You will be notified once approved.</>
+          )}
         </div>
       )}
 

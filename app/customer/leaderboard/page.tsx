@@ -45,7 +45,7 @@ export default function CustomerLeaderboardPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-white">Leaderboard</h1>
-        <p className="text-gray-400 text-sm mt-0.5">Top customers ranked by completed orders</p>
+        <p className="text-gray-400 text-sm mt-0.5">Top customers ranked by total spent</p>
       </div>
 
       {/* Your rank card */}
@@ -70,18 +70,18 @@ export default function CustomerLeaderboardPage() {
                 {myRank ? `#${myRank}` : '—'}
               </p>
               {!isInTop10 && myRank && (
-                <p className="text-xs text-gray-500">Keep ordering to reach the top 10!</p>
+                <p className="text-xs text-gray-500">Spend more to reach the top 10!</p>
               )}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-white/[0.06]">
             <div>
-              <p className="text-xs text-gray-500">Completed Orders</p>
-              <p className="font-semibold text-white">{myStats.completedOrders ?? 0}</p>
-            </div>
-            <div>
               <p className="text-xs text-gray-500">Total Spent</p>
               <p className="font-semibold text-white">{formatCurrency(myStats.totalSpent ?? 0)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Completed Orders</p>
+              <p className="font-semibold text-white">{myStats.completedOrders ?? 0}</p>
             </div>
           </div>
         </div>

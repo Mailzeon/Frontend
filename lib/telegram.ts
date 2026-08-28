@@ -130,28 +130,38 @@ export const initTelegramWebApp = (): void => {
 // manually" fallback as an outright cancel, just triggered by a clock
 // instead of a Telegram response.
 //
-// Returns a bare 10-digit Indian mobile number ready to drop into the
-// phone field, or null if the user cancelled, isn't on a supported number
-// format, this isn't running inside Telegram at all, or (Desktop/Web) the
-// platform never responds within the timeout.
-export const requestTelegramPhoneNumber = (): Promise<string | null> => {
+// Returns:
+//   - localNumber: a ready-to-use 10-digit Indian mobile number, or null
+//     if the shared number wasn't Indian (or nothing came back at all)
+//   - raw: the exact international-format string Telegram gave back (e.g.
+//     "+13234511067"), or null if there's genuinely nothing (cancelled,
+//     timeout, unsupported platform) — kept separately so the caller can
+//     tell "got a number but it's not Indian" apart from "got nothing at
+//     all", and ask the backend for a sharper message in the first case
+//     (see ProfilePage.tsx handleFillFromTelegram()).
+export interface TelegramPhoneResult {
+  localNumber: string | null;
+  raw: string | null;
+}
+
+export const requestTelegramPhoneNumber = (): Promise<TelegramPhoneResult> => {
   return new Promise(resolve => {
     const tg = getTelegramWebApp();
-    if (!tg?.requestContact) { resolve(null); return; }
+    if (!tg?.requestContact) { resolve({ localNumber: null, raw: null }); return; }
 
     let settled = false;
-    const finish = (value: string | null) => {
+    const finish = (value: TelegramPhoneResult) => {
       if (settled) return; // callback firing AFTER the timeout already resolved — ignore it
       settled = true;
       resolve(value);
     };
 
-    const timeoutId = setTimeout(() => finish(null), 8000);
+    const timeoutId = setTimeout(() => finish({ localNumber: null, raw: null }), 8000);
 
     tg.requestContact((sent, response) => {
       clearTimeout(timeoutId);
-      const raw = sent ? response?.responseUnsafe?.contact?.phone_number : null;
-      if (!raw) { finish(null); return; }
+      const raw = sent ? response?.responseUnsafe?.contact?.phone_number ?? null : null;
+      if (!raw) { finish({ localNumber: null, raw: null }); return; }
 
       // Telegram gives international format, e.g. "919876543210" or
       // "+919876543210" — strip a leading "+", then a leading "91" country
@@ -163,7 +173,7 @@ export const requestTelegramPhoneNumber = (): Promise<string | null> => {
       const local = digitsOnly.startsWith('91') && digitsOnly.length === 12
         ? digitsOnly.slice(2)
         : digitsOnly;
-      finish(/^[6-9]\d{9}$/.test(local) ? local : null);
+      finish({ localNumber: /^[6-9]\d{9}$/.test(local) ? local : null, raw });
     });
   });
 };

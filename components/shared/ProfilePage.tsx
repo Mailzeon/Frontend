@@ -86,13 +86,26 @@ export function ProfilePage({ showPaymentDetails = false }: ProfilePageProps) {
   const handleFillFromTelegram = async () => {
     setFetchingTgPhone(true);
     try {
-      const number = await requestTelegramPhoneNumber();
-      if (number) {
-        setPhone(number);
+      const { localNumber, raw } = await requestTelegramPhoneNumber();
+      if (localNumber) {
+        setPhone(localNumber);
         toast.success('Number filled in from Telegram — tap Save Changes to verify it.');
-      } else {
-        toast.error("Couldn't get a usable number from Telegram — you can type it in manually instead.");
+        return;
       }
+      if (raw) {
+        // Got a real number back, just not an Indian one — ask the
+        // backend whether this specifically looks like the
+        // India-IP-with-a-foreign-number pattern (temp/virtual number
+        // services) so the message can be exact instead of generic.
+        try {
+          const { data } = await api.post('/users/me/check-telegram-phone-country', { phoneNumber: raw });
+          toast.error(data.message);
+        } catch {
+          toast.error("That doesn't look like an Indian number — please enter your Indian mobile number manually to continue.");
+        }
+        return;
+      }
+      toast.error("Couldn't get a usable number from Telegram — you can type it in manually instead.");
     } finally {
       setFetchingTgPhone(false);
     }

@@ -29,6 +29,11 @@ interface TelegramWebApp {
       photo_url?: string;
     };
   };
+  // Which Telegram client this is running inside — 'android' | 'ios' |
+  // 'tdesktop' | 'macos' | 'web' | 'weba' | 'unigram' | 'unknown'. Used to
+  // gate requestTelegramPhoneNumber() below to the two platforms where
+  // Telegram actually supports it.
+  platform: string;
   ready: () => void;
   expand: () => void;
   colorScheme: 'light' | 'dark';
@@ -57,6 +62,19 @@ export const isTelegramMiniApp = (): boolean => {
   // script injects window.Telegram.WebApp everywhere it loads, but a
   // normal browser visit has no initData to give it.
   return !!window.Telegram?.WebApp?.initData;
+};
+
+// requestContact() only actually opens Telegram's native "share your
+// number?" popup on the two mobile apps — on every other client
+// (Desktop, macOS, Web) the method exists but the callback simply never
+// fires (see requestTelegramPhoneNumber()'s comment below). Gating the
+// button itself on platform, rather than only relying on the timeout
+// fallback, means people on Desktop/Web never see a button that's
+// guaranteed to fail — they just get the manual phone field, same as any
+// non-Telegram signup.
+export const supportsTelegramContactRequest = (): boolean => {
+  const platform = getTelegramWebApp()?.platform;
+  return platform === 'android' || platform === 'ios';
 };
 
 export const getTelegramWebApp = (): TelegramWebApp | null => {
@@ -103,17 +121,37 @@ export const initTelegramWebApp = (): void => {
 // validating-data spec the way initData's is, so re-checking it the normal
 // way costs nothing and keeps the security bar identical either way.
 //
+// PLATFORM GAP: requestContact only ever actually shows Telegram's native
+// popup on the mobile apps (Android/iOS) — on Telegram Desktop and Telegram
+// Web, the method exists (so the `tg?.requestContact` check above doesn't
+// catch it) but the client silently never fires the callback at all. With
+// no timeout, that left this stuck on "Asking Telegram…" forever with no
+// way out. The timeout below is the fix — same graceful "type it in
+// manually" fallback as an outright cancel, just triggered by a clock
+// instead of a Telegram response.
+//
 // Returns a bare 10-digit Indian mobile number ready to drop into the
 // phone field, or null if the user cancelled, isn't on a supported number
-// format, or this isn't running inside Telegram at all.
+// format, this isn't running inside Telegram at all, or (Desktop/Web) the
+// platform never responds within the timeout.
 export const requestTelegramPhoneNumber = (): Promise<string | null> => {
   return new Promise(resolve => {
     const tg = getTelegramWebApp();
     if (!tg?.requestContact) { resolve(null); return; }
 
+    let settled = false;
+    const finish = (value: string | null) => {
+      if (settled) return; // callback firing AFTER the timeout already resolved — ignore it
+      settled = true;
+      resolve(value);
+    };
+
+    const timeoutId = setTimeout(() => finish(null), 8000);
+
     tg.requestContact((sent, response) => {
+      clearTimeout(timeoutId);
       const raw = sent ? response?.responseUnsafe?.contact?.phone_number : null;
-      if (!raw) { resolve(null); return; }
+      if (!raw) { finish(null); return; }
 
       // Telegram gives international format, e.g. "919876543210" or
       // "+919876543210" — strip a leading "+", then a leading "91" country
@@ -125,7 +163,7 @@ export const requestTelegramPhoneNumber = (): Promise<string | null> => {
       const local = digitsOnly.startsWith('91') && digitsOnly.length === 12
         ? digitsOnly.slice(2)
         : digitsOnly;
-      resolve(/^[6-9]\d{9}$/.test(local) ? local : null);
+      finish(/^[6-9]\d{9}$/.test(local) ? local : null);
     });
   });
 };

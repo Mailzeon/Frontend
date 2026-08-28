@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { toast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
-import { isTelegramMiniApp, requestTelegramPhoneNumber } from '@/lib/telegram';
+import { isTelegramMiniApp, supportsTelegramContactRequest, requestTelegramPhoneNumber } from '@/lib/telegram';
 import {
   isPushSupported, getExistingSubscription,
   enablePushNotifications, disablePushNotifications,
@@ -76,10 +76,12 @@ export function ProfilePage({ showPaymentDetails = false }: ProfilePageProps) {
   // Editable here so it can be set up-front instead of only at checkout time.
   const [phone, setPhone]         = useState(user?.phone ?? '');
   // Only ever shown for accounts with a real Telegram identity, actually
-  // running inside the Telegram Mini App WebView right now — a plain web
-  // visitor never sees this button at all, Telegram-linked or not.
+  // running inside the Telegram Mini App WebView right now, AND on a
+  // platform (Android/iOS) where Telegram actually supports the native
+  // "share your number" popup — see lib/telegram.ts
+  // supportsTelegramContactRequest() for why Desktop/Web are excluded.
   const [fetchingTgPhone, setFetchingTgPhone] = useState(false);
-  const showTelegramPhoneButton = !!user?.telegramId && isTelegramMiniApp();
+  const showTelegramPhoneButton = !!user?.telegramId && isTelegramMiniApp() && supportsTelegramContactRequest();
 
   const handleFillFromTelegram = async () => {
     setFetchingTgPhone(true);

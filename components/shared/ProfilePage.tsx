@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { toast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
+import { isTelegramMiniApp, requestTelegramPhoneNumber } from '@/lib/telegram';
 import {
   isPushSupported, getExistingSubscription,
   enablePushNotifications, disablePushNotifications,
@@ -74,6 +75,26 @@ export function ProfilePage({ showPaymentDetails = false }: ProfilePageProps) {
   // NEW: phone — required by Cashfree before a customer can place an order.
   // Editable here so it can be set up-front instead of only at checkout time.
   const [phone, setPhone]         = useState(user?.phone ?? '');
+  // Only ever shown for accounts with a real Telegram identity, actually
+  // running inside the Telegram Mini App WebView right now — a plain web
+  // visitor never sees this button at all, Telegram-linked or not.
+  const [fetchingTgPhone, setFetchingTgPhone] = useState(false);
+  const showTelegramPhoneButton = !!user?.telegramId && isTelegramMiniApp();
+
+  const handleFillFromTelegram = async () => {
+    setFetchingTgPhone(true);
+    try {
+      const number = await requestTelegramPhoneNumber();
+      if (number) {
+        setPhone(number);
+        toast.success('Number filled in from Telegram — tap Save Changes to verify it.');
+      } else {
+        toast.error("Couldn't get a usable number from Telegram — you can type it in manually instead.");
+      }
+    } finally {
+      setFetchingTgPhone(false);
+    }
+  };
   const [savingProfile, setSavingProfile] = useState(false);
 
   // ── Password change form ──────────────────────────────────────────────────
@@ -376,6 +397,16 @@ export function ProfilePage({ showPaymentDetails = false }: ProfilePageProps) {
               onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
               maxLength={10}
             />
+            {showTelegramPhoneButton && (
+              <button
+                type="button"
+                onClick={handleFillFromTelegram}
+                disabled={fetchingTgPhone}
+                className="text-xs text-purple-400 hover:text-purple-300 font-medium disabled:opacity-50"
+              >
+                {fetchingTgPhone ? 'Asking Telegram…' : '📱 Fill in from Telegram'}
+              </button>
+            )}
             <p className="text-xs text-gray-500">
               {user?.phoneVerified
                 ? 'Required to place or accept orders. Changing this will re-verify it.'

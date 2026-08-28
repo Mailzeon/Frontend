@@ -26,6 +26,11 @@ export interface AuthUser {
   // suspended/banned" — both show isApproved:false, only this tells them
   // apart. See backend User.model.ts wasEverApproved comment.
   wasEverApproved?: boolean;
+  // Set only for accounts that have a linked Telegram identity — used to
+  // gate the "autofill from Telegram" phone button (see ProfilePage.tsx /
+  // lib/telegram.ts requestTelegramPhoneNumber()) to accounts that
+  // actually have a Telegram identity to pull it from.
+  telegramId?: string;
 }
 
 interface AuthState {

@@ -4,6 +4,20 @@
 // visit too — window.Telegram simply never appears outside an actual
 // Telegram Mini App WebView, so everything here is a no-op / returns null
 // on the regular website.
+interface TelegramContactResponse {
+  status: 'sent' | 'cancelled';
+  responseUnsafe?: {
+    auth_date: string;
+    hash: string;
+    contact: {
+      first_name: string;
+      last_name?: string;
+      phone_number: string;
+      user_id: number;
+    };
+  };
+}
+
 interface TelegramWebApp {
   initData: string;
   initDataUnsafe: {
@@ -24,6 +38,11 @@ interface TelegramWebApp {
     hide: () => void;
     onClick: (cb: () => void) => void;
   };
+  // Opens Telegram's own native "share phone number?" confirmation popup —
+  // this is the ONLY way to get a phone number out of Telegram at all (see
+  // requestTelegramPhoneNumber() below for why there's no silent/automatic
+  // route). `sent` is false if the user tapped "Cancel" on Telegram's popup.
+  requestContact: (callback: (sent: boolean, response: TelegramContactResponse) => void) => void;
 }
 
 declare global {
@@ -69,4 +88,44 @@ export const initTelegramWebApp = (): void => {
   if (!tg) return;
   tg.ready();
   tg.expand();
+};
+
+// One-tap phone autofill for Telegram-origin accounts (see
+// ProfilePage.tsx). Telegram's Bot API / Mini App initData NEVER exposes a
+// user's phone number silently — requestContact()'s native "share your
+// number?" popup, which needs one explicit tap to confirm, is the ONLY
+// route Telegram offers at all; there is no way to skip that tap. What
+// this DOES remove entirely is manual typing — one tap fills the field,
+// same as typing it in by hand, then it goes through the exact same
+// verifyPhone() check as any manually-typed number (see user.routes.ts) —
+// this is deliberately NOT treated as pre-verified, since the response's
+// signature scheme isn't part of Telegram's officially documented
+// validating-data spec the way initData's is, so re-checking it the normal
+// way costs nothing and keeps the security bar identical either way.
+//
+// Returns a bare 10-digit Indian mobile number ready to drop into the
+// phone field, or null if the user cancelled, isn't on a supported number
+// format, or this isn't running inside Telegram at all.
+export const requestTelegramPhoneNumber = (): Promise<string | null> => {
+  return new Promise(resolve => {
+    const tg = getTelegramWebApp();
+    if (!tg?.requestContact) { resolve(null); return; }
+
+    tg.requestContact((sent, response) => {
+      const raw = sent ? response?.responseUnsafe?.contact?.phone_number : null;
+      if (!raw) { resolve(null); return; }
+
+      // Telegram gives international format, e.g. "919876543210" or
+      // "+919876543210" — strip a leading "+", then a leading "91" country
+      // code, down to the bare 10-digit number our backend's
+      // ^[6-9]\d{9}$ check expects. Anything that doesn't end up matching
+      // that shape (a non-Indian number) is dropped rather than guessed at
+      // — the person just types theirs in manually in that case.
+      const digitsOnly = raw.replace(/\D/g, '');
+      const local = digitsOnly.startsWith('91') && digitsOnly.length === 12
+        ? digitsOnly.slice(2)
+        : digitsOnly;
+      resolve(/^[6-9]\d{9}$/.test(local) ? local : null);
+    });
+  });
 };

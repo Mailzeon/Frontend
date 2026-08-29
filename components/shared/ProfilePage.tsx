@@ -416,7 +416,7 @@ export function ProfilePage({ showPaymentDetails = false }: ProfilePageProps) {
             </div>
             <Input
               type="tel"
-              placeholder="9876543210"
+              placeholder="10-digit mobile number"
               value={phone}
               onChange={e => {
                 const v = e.target.value;

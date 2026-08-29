@@ -94,12 +94,21 @@ export function ProfilePage({ showPaymentDetails = false }: ProfilePageProps) {
       }
       if (raw) {
         // Got a real number back, just not an Indian one — ask the
-        // backend whether this specifically looks like the
-        // India-IP-with-a-foreign-number pattern (temp/virtual number
-        // services) so the message can be exact instead of generic.
+        // backend to check it against this request's own IP (see
+        // user.routes.ts /me/check-telegram-phone-country). If it
+        // genuinely matches (a real foreign worker/customer's own real
+        // foreign number), it's accepted and filled straight in — Save
+        // still re-verifies it the same way as any other number. If not,
+        // the backend picks the exact wording for why (including calling
+        // out the specific India-IP-with-a-foreign-number pattern).
         try {
           const { data } = await api.post('/users/me/check-telegram-phone-country', { phoneNumber: raw });
-          toast.error(data.message);
+          if (data.accepted) {
+            setPhone(data.phoneNumber);
+            toast.success('Number filled in from Telegram — tap Save Changes to verify it.');
+          } else if (data.message) {
+            toast.error(data.message);
+          }
         } catch {
           toast.error("That doesn't look like an Indian number — please enter your Indian mobile number manually to continue.");
         }
@@ -409,8 +418,21 @@ export function ProfilePage({ showPaymentDetails = false }: ProfilePageProps) {
               type="tel"
               placeholder="9876543210"
               value={phone}
-              onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-              maxLength={10}
+              onChange={e => {
+                const v = e.target.value;
+                // A "+"-prefixed value only ever gets INTO this field via
+                // the "Fill in from Telegram" button below (a foreign
+                // number matched against the request's own IP — see
+                // user.routes.ts /me/check-telegram-phone-country) — never
+                // by typing, since a real phone keypad/keyboard wouldn't
+                // produce Telegram's exact E.164 string by hand anyway.
+                // Once it's there, this just needs to not mangle it if the
+                // person clicks back into the field — everyone else typing
+                // a plain Indian number keeps the original strip-to-10-
+                // digits behavior untouched.
+                setPhone(v.startsWith('+') ? v.replace(/(?!^\+)\D/g, '').slice(0, 16) : v.replace(/\D/g, '').slice(0, 10));
+              }}
+              maxLength={phone.startsWith('+') ? 16 : 10}
             />
             {showTelegramPhoneButton && (
               <button

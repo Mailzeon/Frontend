@@ -124,7 +124,7 @@ function RegisterContent() {
               <Input
                 id="phone"
                 type="tel"
-                placeholder="9876543210"
+                placeholder="10-digit mobile number"
                 value={phone}
                 onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                 maxLength={10}

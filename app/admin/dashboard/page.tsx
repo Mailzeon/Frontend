@@ -183,6 +183,40 @@ export default function AdminDashboard() {
           )}
         </div>
       </div>
+
+      {/* Signups Chart — NEW. This is the "who's signing up" data Vercel
+          Web Analytics can't show for free (custom events there need a
+          $20/mo Pro plan — see docs.vercel.com/analytics/limits-and-pricing).
+          Built here instead since every signup is already a User document
+          with its own createdAt in this DB — no separate event-tracking
+          system needed, this just groups data that already exists, same
+          as the two charts above it. */}
+      <div className="glass-card p-5 mt-4">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold text-white">Signups — Last 7 Days</h2>
+          <span className="text-xs text-gray-500">Live from DB</span>
+        </div>
+        {analytics.length === 0 || analytics.every(d => d.customerSignups === 0 && d.workerSignups === 0) ? (
+          <div className="h-48 flex items-center justify-center text-gray-500 text-sm">
+            No signups yet — chart will populate as people register.
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart data={analytics}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+              <XAxis dataKey="day" tick={{ fill: '#9CA3AF', fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: '#9CA3AF', fontSize: 11 }} axisLine={false} tickLine={false}
+                allowDecimals={false} />
+              <Tooltip {...TOOLTIP_STYLE} />
+              <Legend wrapperStyle={{ fontSize: '12px' }} />
+              <Line type="monotone" dataKey="customerSignups" name="Customers" stroke="#A855F7" strokeWidth={2}
+                dot={{ fill: '#A855F7', r: 3 }} activeDot={{ r: 5 }} />
+              <Line type="monotone" dataKey="workerSignups" name="Workers" stroke="#F59E0B" strokeWidth={2}
+                dot={{ fill: '#F59E0B', r: 3 }} activeDot={{ r: 5 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        )}
+      </div>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import Script from 'next/script';
+import { Analytics } from '@vercel/analytics/next';
 import { Toaster } from '@/components/ui/toast';
 import { InstallPrompt } from '@/components/shared/InstallPrompt';
 import { ServiceWorkerRegister } from '@/components/shared/ServiceWorkerRegister';
@@ -54,6 +55,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AppInstallDetector />
         <InstallPrompt />
         <Toaster />
+        {/* Vercel Analytics — page-view + traffic tracking, visible in the
+            Vercel dashboard (Analytics tab), NOT inside Mailzeon's own
+            admin panel. See lib/analytics.ts's trackSignup() for the one
+            custom event layered on top (page views alone don't tell you
+            who actually completed signup, only who visited /register). */}
+        <Analytics />
       </body>
     </html>
   );

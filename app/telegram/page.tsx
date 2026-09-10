@@ -6,6 +6,7 @@ import { api } from '@/lib/api';
 import { toast } from '@/components/ui/toast';
 import { useAuthStore } from '@/store/authStore';
 import { initSocket } from '@/lib/socket';
+import { trackSignup } from '@/lib/analytics';
 import {
   isTelegramMiniApp, getTelegramInitData, initTelegramWebApp, getTelegramUser,
 } from '@/lib/telegram';
@@ -46,6 +47,11 @@ function TelegramEntryInner() {
       const { user, token } = data.data;
       setAuth(user, token);
       initSocket(user._id, user.role);
+      // `role` is only ever passed when this is a brand-new registration
+      // (see the two call sites below) — a returning user's login never
+      // has it, so this never double-counts an existing account logging
+      // back in as a fresh signup.
+      if (role) trackSignup(user.role);
       toast.success(`Welcome, ${user.name}!`);
       router.push(`/${user.role}/dashboard`);
     } catch (err: any) {

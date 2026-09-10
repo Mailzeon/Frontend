@@ -13,6 +13,7 @@ import { api } from '@/lib/api';
 import { initSocket } from '@/lib/socket';
 import { getDeviceId } from '@/lib/fingerprint';
 import { cn } from '@/lib/utils';
+import { trackSignup } from '@/lib/analytics';
 import { Footer } from '@/components/shared/Footer';
 
 function RegisterContent() {
@@ -54,6 +55,7 @@ function RegisterContent() {
       const { user, token } = data.data;
       setAuth(user, token);
       initSocket(user._id, user.role);
+      trackSignup(user.role);
       toast.success(data.message);
       router.push(`/${user.role}/dashboard`);
     } catch (err: any) {

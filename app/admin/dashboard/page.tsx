@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Users, ShoppingBag, Wallet, AlertTriangle, TrendingUp, Activity, Clock, Undo2, Percent, KeyRound } from 'lucide-react';
 import { StatCard } from '@/components/shared/StatCard';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -27,6 +27,69 @@ export default function AdminDashboard() {
   const [analytics, setAnalytics] = useState<any[]>([]);
   const [loading,   setLoading]   = useState(true);
 
+  // ── Analytics date-range selector ────────────────────────────────────
+  // Shared by all 3 charts below — one range control drives all of them
+  // together, since they all come off the same /admin/analytics endpoint.
+  type RangePreset = '7d' | '30d' | 'month' | 'year' | 'all';
+  const [rangePreset,   setRangePreset]   = useState<RangePreset>('7d');
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());   // 0-11
+  const [selectedYear,  setSelectedYear]  = useState(new Date().getFullYear());
+  const [rangeLoading,  setRangeLoading]  = useState(false);
+  const isFirstAnalyticsFetch = useRef(true);
+
+  const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  const rangeLabel =
+    rangePreset === '7d'    ? 'Last 7 Days' :
+    rangePreset === '30d'   ? 'Last 30 Days' :
+    rangePreset === 'month' ? `${MONTH_NAMES[selectedMonth]} ${selectedYear}` :
+    rangePreset === 'year'  ? `${selectedYear}` :
+    'All Time';
+
+  // Bounds the year dropdowns below so nobody can pick a year before the
+  // platform's own earliest signup — see admin.routes.ts /stats
+  // earliestDataDate. Falls back to just the current year until stats
+  // has loaded.
+  const earliestYear = stats?.earliestDataDate ? new Date(stats.earliestDataDate).getFullYear() : new Date().getFullYear();
+  const yearOptions = Array.from({ length: new Date().getFullYear() - earliestYear + 1 }, (_, i) => earliestYear + i).reverse();
+
+  function getRangeDates(preset: RangePreset, month: number, year: number): { from: string; to: string } {
+    const toStr = (d: Date) => d.toISOString().split('T')[0];
+    const now = new Date();
+
+    if (preset === '30d') {
+      const from = new Date(); from.setDate(from.getDate() - 29);
+      return { from: toStr(from), to: toStr(now) };
+    }
+    if (preset === 'month') {
+      return { from: toStr(new Date(year, month, 1)), to: toStr(new Date(year, month + 1, 0)) };
+    }
+    if (preset === 'year') {
+      return { from: toStr(new Date(year, 0, 1)), to: toStr(new Date(year, 11, 31)) };
+    }
+    if (preset === 'all') {
+      const from = stats?.earliestDataDate ? new Date(stats.earliestDataDate) : new Date(year, 0, 1);
+      return { from: toStr(from), to: toStr(now) };
+    }
+    // '7d' — matches the backend's own default, sent explicitly anyway so
+    // the frontend's picked range and what's actually charted never drift.
+    const from = new Date(); from.setDate(from.getDate() - 6);
+    return { from: toStr(from), to: toStr(now) };
+  }
+
+  const fetchAnalytics = async (preset: RangePreset, month: number, year: number) => {
+    setRangeLoading(true);
+    try {
+      const { from, to } = getRangeDates(preset, month, year);
+      const { data } = await api.get('/admin/analytics', { params: { from, to } });
+      if (data.success) setAnalytics(data.data);
+    } catch {
+      toast.error('Failed to load analytics for this range.');
+    } finally {
+      setRangeLoading(false);
+    }
+  };
+
   useEffect(() => {
     const fetchAll = async () => {
       try {
@@ -49,6 +112,14 @@ export default function AdminDashboard() {
     };
     fetchAll();
   }, []);
+
+  // Refetch analytics whenever the range selector changes — NOT on the
+  // very first render, since fetchAll() above already loaded the default
+  // 7-day view as part of the initial page load.
+  useEffect(() => {
+    if (isFirstAnalyticsFetch.current) { isFirstAnalyticsFetch.current = false; return; }
+    fetchAnalytics(rangePreset, selectedMonth, selectedYear);
+  }, [rangePreset, selectedMonth, selectedYear]);
 
   // Live "Workers Online" count — updates the instant a worker flips their
   // switch, or the instant their connection drops (app closed, lost
@@ -119,13 +190,57 @@ export default function AdminDashboard() {
         <StatCard title="Open Disputes" value={stats?.openDisputes ?? 0} icon={AlertTriangle} color="red" />
       </div>
 
+      {/* Analytics date-range selector — drives all 3 charts below */}
+      <div className="glass-card p-4 flex flex-wrap items-center gap-2">
+        {(['7d', '30d', 'month', 'year', 'all'] as const).map(preset => (
+          <button
+            key={preset}
+            onClick={() => setRangePreset(preset)}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              rangePreset === preset ? 'bg-purple-600 text-white' : 'bg-white/[0.04] text-gray-400 hover:bg-white/[0.08]'
+            }`}
+          >
+            {preset === '7d' ? '7D' : preset === '30d' ? '30D' : preset === 'month' ? 'Month' : preset === 'year' ? 'Year' : 'All Time'}
+          </button>
+        ))}
+
+        {rangePreset === 'month' && (
+          <>
+            <select
+              value={selectedMonth}
+              onChange={e => setSelectedMonth(Number(e.target.value))}
+              className="bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-gray-200 px-2 py-1.5"
+            >
+              {MONTH_NAMES.map((m, i) => <option key={m} value={i}>{m}</option>)}
+            </select>
+            <select
+              value={selectedYear}
+              onChange={e => setSelectedYear(Number(e.target.value))}
+              className="bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-gray-200 px-2 py-1.5"
+            >
+              {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </>
+        )}
+        {rangePreset === 'year' && (
+          <select
+            value={selectedYear}
+            onChange={e => setSelectedYear(Number(e.target.value))}
+            className="bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-gray-200 px-2 py-1.5"
+          >
+            {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
+        )}
+        {rangeLoading && <span className="text-xs text-gray-500 ml-auto">Loading…</span>}
+      </div>
+
       {/* REAL-TIME CHARTS */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
 
         {/* Revenue vs Commission Chart */}
         <div className="glass-card p-5">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-white">Revenue & Commission — Last 7 Days</h2>
+            <h2 className="font-semibold text-white">Revenue & Commission — {rangeLabel}</h2>
             <span className="text-xs text-gray-500">Live from DB</span>
           </div>
           {analytics.length === 0 ? (
@@ -161,7 +276,7 @@ export default function AdminDashboard() {
         {/* Orders Chart */}
         <div className="glass-card p-5">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-white">Orders — Last 7 Days</h2>
+            <h2 className="font-semibold text-white">Orders — {rangeLabel}</h2>
             <span className="text-xs text-gray-500">Live from DB</span>
           </div>
           {analytics.length === 0 ? (
@@ -193,7 +308,7 @@ export default function AdminDashboard() {
           as the two charts above it. */}
       <div className="glass-card p-5 mt-4">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold text-white">Signups — Last 7 Days</h2>
+          <h2 className="font-semibold text-white">Signups — {rangeLabel}</h2>
           <span className="text-xs text-gray-500">Live from DB</span>
         </div>
         {analytics.length === 0 || analytics.every(d => d.customerSignups === 0 && d.workerSignups === 0) ? (

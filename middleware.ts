@@ -29,11 +29,16 @@ export function middleware(req: NextRequest) {
   // real API call is enforced server-side against the httpOnly cookie.
   const role = req.cookies.get('mp_role')?.value;
 
-  const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
+  // NEW: "/" is the public marketing homepage now (see app/page.tsx) —
+  // handled as its own exact-match check rather than folded into
+  // PUBLIC_PATHS' .startsWith() logic, since startsWith('/') would
+  // otherwise match every single route on the site.
+  const isRootPage = pathname === '/';
+  const isPublic   = isRootPage || PUBLIC_PATHS.some((p) => pathname.startsWith(p));
 
   // ── Not logged in ──────────────────────────────────────────────────────────
   if (!role) {
-    if (isPublic) return NextResponse.next(); // Allow login/register/compliance pages
+    if (isPublic) return NextResponse.next(); // Allow login/register/compliance pages + homepage
     // Redirect everything else to login
     const url = req.nextUrl.clone();
     url.pathname = '/login';
@@ -43,10 +48,11 @@ export function middleware(req: NextRequest) {
   // ── Already logged in ───────────────────────────────────────────────────────
   // FIX: previously ANY public path (including /contact, /terms, etc.) redirected
   // a logged-in user straight to their dashboard — meaning a logged-in customer
-  // could never view the Terms or Contact page at all. Now only /login and
-  // /register redirect away when already authenticated; the compliance pages
-  // stay viewable for logged-in users too.
-  const isAuthOnlyPage = pathname.startsWith('/login') || pathname.startsWith('/register');
+  // could never view the Terms or Contact page at all. Now only /login, /register,
+  // and "/" (the marketing homepage — an already-signed-up person has no reason
+  // to see a "sign up now" pitch) redirect away when already authenticated; the
+  // compliance pages stay viewable for logged-in users too.
+  const isAuthOnlyPage = pathname.startsWith('/login') || pathname.startsWith('/register') || isRootPage;
   if (isAuthOnlyPage) {
     const url = req.nextUrl.clone();
     url.pathname = `/${role}/dashboard`;

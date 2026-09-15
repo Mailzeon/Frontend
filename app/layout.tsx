@@ -12,8 +12,32 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'sw
 const jetbrainsMono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-jetbrains-mono', display: 'swap' });
 
 export const metadata: Metadata = {
-  title: { default: 'Mailzeon', template: '%s | Mailzeon' },
-  description: 'Premium marketplace platform',
+  title: { default: 'Mailzeon — Email Accounts Created On Demand', template: '%s | Mailzeon' },
+  // FIX: this used to be a generic, placeholder-looking one-liner
+  // ('Premium marketplace platform') — said nothing about what Mailzeon
+  // actually does. Now matters more than ever since ads are driving real
+  // traffic: this exact string is what shows up under the title in Google
+  // search results and as the description line when the link is shared.
+  description: 'Get any email account created for you — Gmail, Outlook, Yahoo, and more. Place an order, a verified worker delivers your credentials. Starting at just ₹15.',
+  // NEW: Open Graph + Twitter Card metadata — without this, sharing the
+  // Mailzeon link in a DM, WhatsApp, or social post showed either nothing
+  // or a broken/blank preview card. og-image.png is a static 1200x630
+  // branded image in /public (see the design in app/page.tsx's hero copy).
+  openGraph: {
+    title: 'Mailzeon — Email Accounts Created On Demand',
+    description: 'Get any email account created for you — Gmail, Outlook, Yahoo, and more. Starting at just ₹15.',
+    url: 'https://mailzeon.shop',
+    siteName: 'Mailzeon',
+    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'Mailzeon — Get any email account created for you, on demand' }],
+    locale: 'en_IN',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Mailzeon — Email Accounts Created On Demand',
+    description: 'Get any email account created for you — Gmail, Outlook, Yahoo, and more. Starting at just ₹15.',
+    images: ['/og-image.png'],
+  },
   // NEW: makes the site installable as a home-screen app (PWA) — this is
   // what makes push notifications reliable on iOS Safari (which requires
   // "Add to Home Screen" for push to work at all) and gives Android/desktop

@@ -84,6 +84,27 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // Run on every route except Next.js internals and static files
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.png$).*)'],
+  // Run on every real app route — everything ELSE (Next.js internals,
+  // and any static file straight out of /public: favicon, manifest, the
+  // service worker, icons, robots.txt, sitemap.xml, Google's site-
+  // verification .html file, etc.) is excluded entirely.
+  //
+  // BUG FIX: this used to only exclude .png files — every other static
+  // file in /public (robots.txt, sitemap.xml, manifest.json, sw.js, and
+  // Google's google<token>.html verification file) was being treated as
+  // a normal app route. A visitor with no `mp_role` cookie — which is
+  // EVERY crawler/bot, Googlebot included, since bots never log in — hit
+  // the "not logged in" branch above and got redirected to /login for all
+  // of these. That's exactly why Google Search Console's ownership
+  // verification failed with "wrong content": it requested the
+  // verification file and got the /login page's HTML back instead. The
+  // same bug was silently breaking robots.txt and sitemap.xml for Google
+  // too, and sw.js for any logged-out visitor's service-worker
+  // registration. Excluding by extension (not just an explicit path list)
+  // means any FUTURE static file dropped into /public — another
+  // verification file, a new manifest, etc. — is automatically exempt
+  // without needing another middleware edit.
+  matcher: [
+    '/((?!_next/static|_next/image|favicon\\.ico|manifest\\.json|sw\\.js|robots\\.txt|sitemap\\.xml|.*\\.(?:png|jpg|jpeg|svg|ico|html|txt|xml|json|webmanifest)$).*)',
+  ],
 };

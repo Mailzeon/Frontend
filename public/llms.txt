@@ -1,0 +1,28 @@
+# Mailzeon
+
+> Mailzeon is an on-demand email account marketplace. Customers place an order specifying an email domain (Gmail, Outlook, Yahoo, iCloud, ProtonMail, Zoho, and others) and a name preference (random or custom); independent verified workers accept the order, create the account, and deliver the credentials. Payment is held securely and only released to the worker once the order is confirmed delivered.
+
+## What Mailzeon offers
+
+- On-demand email account creation across many providers, not just Gmail
+- Single-account or bulk orders (multiple accounts placed and paid for together, each created and delivered individually)
+- Starts at a low minimum order amount, with a transparent flat platform commission
+- A worker-side marketplace: verified workers browse open orders, accept them, and earn per account created
+- Dispute and refund protection on every order
+- Available both on the web and as a Telegram Mini App (@MailzeonBot)
+- Referral programs for both customers and workers
+
+## Key facts
+
+- Website: https://mailzeon.shop
+- Telegram: @MailzeonBot
+- Supported email domains include: Gmail, Outlook, Yahoo, iCloud, ProtonMail, Zoho, AOL, GMX, and more
+- Base country / primary market: India
+
+## Pages
+
+- Homepage: https://mailzeon.shop/
+- Pricing: https://mailzeon.shop/pricing
+- Contact: https://mailzeon.shop/contact
+- Terms: https://mailzeon.shop/terms
+- Refunds & Cancellations: https://mailzeon.shop/refund-policy

@@ -85,6 +85,19 @@ export default function AdminSettingsPage() {
     }
   };
 
+  const [pingingIndexNow, setPingingIndexNow] = useState(false);
+  const handleIndexNowPing = async () => {
+    setPingingIndexNow(true);
+    try {
+      const { data } = await api.post('/admin/seo/indexnow-ping', {});
+      if (data.success) toast.success(`Pinged Bing/Yandex for ${data.data.urls.length} pages.`);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'IndexNow submission failed.');
+    } finally {
+      setPingingIndexNow(false);
+    }
+  };
+
   const fetchSettings = async () => {
     try {
       const { data } = await api.get('/admin/settings');
@@ -266,6 +279,28 @@ export default function AdminSettingsPage() {
         </div>
         <Button onClick={handleRunAutoComplete} loading={runningAutoComplete} variant="outline">
           <PlayCircle className="w-4 h-4 mr-2" /> Run Sweep Now
+        </Button>
+      </div>
+
+      {/* ── SEO: IndexNow ────────────────────────────────────────────────── */}
+      <div className="glass-card p-5">
+        <div className="flex items-start gap-3 mb-3">
+          <div className="w-9 h-9 rounded-xl bg-[#1C1C24] flex items-center justify-center shrink-0">
+            <PlayCircle className="w-4.5 h-4.5 text-gray-300" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-white">Ping Search Engines (IndexNow)</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Tells Bing, Yandex, and other IndexNow-participating search engines to re-crawl the
+              public marketing pages right away, instead of waiting for their own schedule. Use this
+              after making a real content change to the homepage, pricing, or policy pages — not
+              needed otherwise. Google isn't part of IndexNow; use Search Console's own "Request
+              Indexing" for that.
+            </p>
+          </div>
+        </div>
+        <Button onClick={handleIndexNowPing} loading={pingingIndexNow} variant="outline">
+          <PlayCircle className="w-4 h-4 mr-2" /> Ping Now
         </Button>
       </div>
 

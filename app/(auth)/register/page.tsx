@@ -89,8 +89,10 @@ function RegisterContent() {
       <div className="relative w-full max-w-md">
         <div className="text-center mb-8">
           <img src="/icon-192.png" alt="Mailzeon" className="w-14 h-14 rounded-2xl mx-auto mb-4 shadow-glow-purple" />
-          <h1 className="text-3xl font-bold text-white tracking-tight">Create account</h1>
-          <p className="text-gray-400 mt-1 text-sm">Join Mailzeon today</p>
+          <h1 className="text-3xl font-bold text-white tracking-tight">Create your account</h1>
+          <p className="text-gray-400 mt-1 text-sm">
+            Get any email account created for you, starting at just ₹{minimumOrderAmount}
+          </p>
         </div>
 
         <div className="glass-card p-8">

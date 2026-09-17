@@ -36,10 +36,33 @@ async function getSettings(): Promise<PublicSettings> {
   return DEFAULTS;
 }
 
+interface PublicStats {
+  completedOrders: number;
+  approvedWorkers: number;
+}
+const STATS_DEFAULTS: PublicStats = { completedOrders: 0, approvedWorkers: 0 };
+
+// Powers the "trust strip" below the hero — see settings.routes.ts
+// GET /settings/public-stats. Deliberately ALWAYS the real, live count,
+// never a fabricated or rounded-up figure — a small honest number is what
+// keeps this page trustworthy, not a bigger fake one.
+async function getStats(): Promise<PublicStats> {
+  try {
+    const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+    const res = await fetch(`${base}/settings/public-stats`, { cache: 'no-store' });
+    const json = await res.json();
+    if (json.success) return json.data;
+  } catch {
+    // Same reasoning as getSettings() above — never hard-fail this page.
+  }
+  return STATS_DEFAULTS;
+}
+
 const DOMAINS = ['Gmail', 'Outlook', 'Yahoo', 'iCloud', 'ProtonMail', 'Zoho', 'AOL', 'GMX', '+ more'];
 
 export default async function HomePage() {
-  const { minimumOrderAmount, platformCommissionRate } = await getSettings();
+  const [{ minimumOrderAmount, platformCommissionRate }, { completedOrders, approvedWorkers }] =
+    await Promise.all([getSettings(), getStats()]);
 
   return (
     <div className="relative min-h-screen bg-[#08080D] overflow-hidden">
@@ -98,6 +121,27 @@ export default async function HomePage() {
             </Link>
           </div>
         </div>
+
+        {/* ── Live trust strip — real numbers only, straight from the DB
+             (see getStats() above / settings.routes.ts public-stats).
+             Skips entirely rather than showing a "0" that would look
+             broken if the platform genuinely has no completed orders yet. */}
+        {(completedOrders > 0 || approvedWorkers > 0) && (
+          <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 mb-16 md:mb-20 text-sm text-gray-400">
+            {completedOrders > 0 && (
+              <span className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-green-400" />
+                <strong className="text-white font-semibold">{completedOrders}</strong> accounts delivered so far
+              </span>
+            )}
+            {approvedWorkers > 0 && (
+              <span className="flex items-center gap-1.5">
+                <Users className="w-4 h-4 text-purple-400" />
+                <strong className="text-white font-semibold">{approvedWorkers}</strong> verified workers ready to help
+              </span>
+            )}
+          </div>
+        )}
 
         {/* ── Domains strip ── */}
         <div className="flex flex-wrap items-center justify-center gap-2 mb-16 md:mb-20">

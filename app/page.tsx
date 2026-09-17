@@ -60,12 +60,43 @@ async function getStats(): Promise<PublicStats> {
 
 const DOMAINS = ['Gmail', 'Outlook', 'Yahoo', 'iCloud', 'ProtonMail', 'Zoho', 'AOL', 'GMX', '+ more'];
 
+// Pulled out to its own constant (rather than inline in the JSX below) so
+// the exact same question/answer pairs can also back the FAQPage
+// structured data further down — Google can render these as an
+// expandable FAQ rich snippet directly in search results when it trusts
+// the page enough to, which needs the visible FAQ content and the JSON-LD
+// to say the exact same thing rather than drifting apart over time.
+const FAQ_ITEMS = [
+  { q: 'Is this safe?', a: 'Yes — your payment is held securely and only released to the worker once your order is delivered. If anything goes wrong, our dispute system protects you and can issue a refund.' },
+  { q: 'What if the account has an issue?', a: 'Raise a dispute right from your order — our team reviews it and refunds are issued for confirmed cases. See our Refunds & Cancellations policy for full details.' },
+  { q: 'Can I order in bulk?', a: 'Yes. Toggle "Bulk order" when placing an order — you pay once, and each account is created and delivered individually in the marketplace.' },
+  { q: 'Which email providers are supported?', a: 'Gmail, Outlook, Yahoo, iCloud, ProtonMail, Zoho, AOL, GMX, and more — pick any domain when placing your order.' },
+];
+
 export default async function HomePage() {
   const [{ minimumOrderAmount, platformCommissionRate }, { completedOrders, approvedWorkers }] =
     await Promise.all([getSettings(), getStats()]);
 
+  // FAQPage structured data — see FAQ_ITEMS above for the single source of
+  // truth this is generated from. Kept as its own object here (rather
+  // than jammed inline into the <script> tag below) purely for readability.
+  const faqStructuredData = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: FAQ_ITEMS.map(item => ({
+      '@type': 'Question',
+      name: item.q,
+      acceptedAnswer: { '@type': 'Answer', text: item.a },
+    })),
+  };
+
   return (
     <div className="relative min-h-screen bg-[#08080D] overflow-hidden">
+      <script
+        type="application/ld+json"
+        // eslint-disable-next-line react/no-danger
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqStructuredData) }}
+      />
       {/* Ambient glow — same decorative treatment as the login/register hero */}
       <div className="ambient-glow w-[36rem] h-[36rem] -top-48 -left-40" />
       <div className="ambient-glow w-[28rem] h-[28rem] top-[40rem] -right-32" style={{ animationDelay: '3s' }} />
@@ -235,12 +266,7 @@ export default async function HomePage() {
         <div className="mb-16 md:mb-20">
           <h2 className="text-2xl font-bold text-white text-center mb-8">Frequently asked</h2>
           <div className="max-w-2xl mx-auto space-y-3">
-            {[
-              { q: 'Is this safe?', a: 'Yes — your payment is held securely and only released to the worker once your order is delivered. If anything goes wrong, our dispute system protects you and can issue a refund.' },
-              { q: 'What if the account has an issue?', a: 'Raise a dispute right from your order — our team reviews it and refunds are issued for confirmed cases. See our Refunds & Cancellations policy for full details.' },
-              { q: 'Can I order in bulk?', a: 'Yes. Toggle "Bulk order" when placing an order — you pay once, and each account is created and delivered individually in the marketplace.' },
-              { q: 'Which email providers are supported?', a: 'Gmail, Outlook, Yahoo, iCloud, ProtonMail, Zoho, AOL, GMX, and more — pick any domain when placing your order.' },
-            ].map(item => (
+            {FAQ_ITEMS.map(item => (
               <details key={item.q} className="glass-card p-5 group">
                 <summary className="flex items-center justify-between cursor-pointer text-sm font-medium text-white list-none">
                   {item.q}

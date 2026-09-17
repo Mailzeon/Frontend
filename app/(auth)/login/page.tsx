@@ -52,8 +52,8 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="text-center mb-8">
           <img src="/icon-192.png" alt="Mailzeon" className="w-14 h-14 rounded-2xl mx-auto mb-4 shadow-glow-purple" />
-          <h1 className="text-3xl font-bold text-white tracking-tight">Welcome back</h1>
-          <p className="text-gray-400 mt-1 text-sm">Sign in to your Mailzeon account</p>
+          <h1 className="text-3xl font-bold text-white tracking-tight">Sign in to Mailzeon</h1>
+          <p className="text-gray-400 mt-1 text-sm">Enter your details to continue to your account</p>
         </div>
 
         {/* Card */}

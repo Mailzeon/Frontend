@@ -31,6 +31,17 @@ export interface AuthUser {
   // lib/telegram.ts requestTelegramPhoneNumber()) to accounts that
   // actually have a Telegram identity to pull it from.
   telegramId?: string;
+  // Worker's saved default payment details (see components/shared/
+  // ProfilePage.tsx "Default Payment Details" section) — BUG FIX: these
+  // used to not exist on this type at all, and the profile page's own
+  // upiId field was hardcoded to start empty (`useState('')`) instead of
+  // reading from here, so a saved default silently reverted to blank on
+  // every page refresh even though it WAS actually saved server-side the
+  // whole time. Also now used to pre-fill (but never lock/read-only) the
+  // withdrawal-request form — see app/worker/wallet/page.tsx.
+  upiId?: string;
+  upiQrCode?: string;
+  upiVerifiedName?: string;
 }
 
 interface AuthState {

@@ -23,7 +23,36 @@ export default function WorkerWalletPage() {
   const [method, setMethod]         = useState<'upi' | 'bank'>('upi');
   const [amount, setAmount]         = useState('');
   const [upiId, setUpiId]           = useState('');
+  const [upiVerifiedName, setUpiVerifiedName] = useState('');
+  const [upiQrCode, setUpiQrCode]   = useState('');
+  const [uploadingQr, setUploadingQr] = useState(false);
   const [bank, setBank]             = useState({ accountHolder: '', accountNumber: '', ifscCode: '', bankName: '' });
+
+  // Same wording as UPI_NAME_INSTRUCTIONS in the backend's
+  // withdrawal.service.ts — keep these two in sync if this copy ever
+  // changes; the backend's own rejection error uses that string directly.
+  const UPI_NAME_INSTRUCTIONS =
+    "Type the EXACT name your own UPI app shows for this UPI ID (open your UPI app, check the name it displays for this ID) — not your Mailzeon account name. " +
+    "If the name you type here doesn't exactly match what your UPI app shows, your withdrawal will be rejected.";
+
+  const handleQrUpload = async (file: File) => {
+    setUploadingQr(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      const { data } = await api.post('/withdrawals/upload-qr', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      if (data.success) {
+        setUpiQrCode(data.data.url);
+        toast.success('QR code uploaded.');
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'QR upload failed.');
+    } finally {
+      setUploadingQr(false);
+    }
+  };
 
   const fetchAll = async () => {
     try {
@@ -58,16 +87,18 @@ export default function WorkerWalletPage() {
     if (!amount || Number(amount) < 1) { toast.error('Enter a valid amount.'); return; }
     if (Number(amount) > (wallet?.balance || 0)) { toast.error('Insufficient balance.'); return; }
     if (method === 'upi' && !upiId.trim()) { toast.error('Enter your UPI ID.'); return; }
+    if (method === 'upi' && !upiQrCode) { toast.error('Upload a screenshot of your UPI QR code.'); return; }
+    if (method === 'upi' && !upiVerifiedName.trim()) { toast.error('Enter the name your UPI app shows for this ID.'); return; }
     if (method === 'bank' && !bank.accountNumber.trim()) { toast.error('Enter bank account number.'); return; }
     setSubmitting(true);
     try {
       const { data } = await api.post('/withdrawals', {
         amount: Number(amount), paymentMethod: method,
-        ...(method === 'upi' ? { upiId } : { bankDetails: bank }),
+        ...(method === 'upi' ? { upiId, upiQrCode, upiVerifiedName } : { bankDetails: bank }),
       });
       if (data.success) {
         toast.success('Withdrawal requested! Will be processed within 24 hours.');
-        setShowWithdraw(false); setAmount('');
+        setShowWithdraw(false); setAmount(''); setUpiId(''); setUpiVerifiedName(''); setUpiQrCode('');
         fetchAll();
       }
     } catch (err: any) { toast.error(err.response?.data?.message || 'Failed.'); }
@@ -168,9 +199,35 @@ export default function WorkerWalletPage() {
               </Select>
             </div>
             {method === 'upi' ? (
-              <div className="space-y-1.5">
-                <Label>UPI ID</Label>
-                <Input placeholder="yourname@upi" value={upiId} onChange={e => setUpiId(e.target.value)} />
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label>UPI ID</Label>
+                  <Input placeholder="yourname@upi" value={upiId} onChange={e => setUpiId(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>UPI QR Code Screenshot</Label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={e => e.target.files?.[0] && handleQrUpload(e.target.files[0])}
+                    className="block w-full text-xs text-gray-400 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-purple-600 file:text-white file:text-xs file:font-medium file:cursor-pointer cursor-pointer"
+                  />
+                  {uploadingQr && <p className="text-xs text-gray-500">Uploading…</p>}
+                  {upiQrCode && !uploadingQr && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <img src={upiQrCode} alt="Your UPI QR" className="w-16 h-16 rounded-lg border border-white/10 object-cover" />
+                      <span className="text-xs text-green-400">Uploaded ✓</span>
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-500">
+                    Open your UPI app (GPay/PhonePe/Paytm), find your QR code, screenshot it, and upload it here.
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Name shown by your UPI app for this ID</Label>
+                  <Input placeholder="Exact name as shown in your UPI app" value={upiVerifiedName} onChange={e => setUpiVerifiedName(e.target.value)} />
+                  <p className="text-xs text-yellow-500/90 leading-relaxed">{UPI_NAME_INSTRUCTIONS}</p>
+                </div>
               </div>
             ) : (
               <div className="space-y-3">
@@ -190,7 +247,7 @@ export default function WorkerWalletPage() {
             <p className="text-xs text-gray-500">Withdrawals are processed manually within 24 hours by admin.</p>
             <div className="flex gap-3 justify-end">
               <Button type="button" variant="outline" onClick={() => setShowWithdraw(false)}>Cancel</Button>
-              <Button type="submit" loading={submitting}>Request Withdrawal</Button>
+              <Button type="submit" loading={submitting} disabled={uploadingQr}>Request Withdrawal</Button>
             </div>
           </form>
         </DialogContent>

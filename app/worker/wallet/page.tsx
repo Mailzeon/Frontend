@@ -12,8 +12,10 @@ import { toast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { onSocketReady, SOCKET_EVENTS } from '@/lib/socket';
+import { useAuthStore } from '@/store/authStore';
 
 export default function WorkerWalletPage() {
+  const { user } = useAuthStore();
   const [wallet, setWallet]         = useState<any>(null);
   const [txns, setTxns]             = useState<any[]>([]);
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
@@ -117,7 +119,21 @@ export default function WorkerWalletPage() {
           <h1 className="text-2xl font-bold text-white">Wallet & Earnings</h1>
           <p className="text-gray-400 text-sm mt-0.5">Manage your earnings and withdrawals</p>
         </div>
-        <Button onClick={() => setShowWithdraw(true)} disabled={!wallet || wallet.balance < 1}>
+        <Button
+          onClick={() => {
+            // Pre-fill from the worker's saved defaults (see
+            // components/shared/ProfilePage.tsx "Default Payment
+            // Details") every time the dialog opens — but these stay
+            // fully editable inside the form below, since a worker might
+            // genuinely want THIS specific withdrawal paid to a different
+            // UPI ID/account than their usual one.
+            setUpiId(user?.upiId ?? '');
+            setUpiVerifiedName(user?.upiVerifiedName ?? '');
+            setUpiQrCode(user?.upiQrCode ?? '');
+            setShowWithdraw(true);
+          }}
+          disabled={!wallet || wallet.balance < 1}
+        >
           <ArrowDownLeft className="w-4 h-4 mr-2" /> Withdraw
         </Button>
       </div>
@@ -200,6 +216,12 @@ export default function WorkerWalletPage() {
             </div>
             {method === 'upi' ? (
               <div className="space-y-3">
+                {(user?.upiId || user?.upiQrCode || user?.upiVerifiedName) && (
+                  <p className="text-xs text-purple-300 bg-purple-500/10 border border-purple-500/20 rounded-lg px-3 py-2">
+                    Pre-filled from your saved default payment details — feel free to change any of
+                    these below if this withdrawal should go somewhere different.
+                  </p>
+                )}
                 <div className="space-y-1.5">
                   <Label>UPI ID</Label>
                   <Input placeholder="yourname@upi" value={upiId} onChange={e => setUpiId(e.target.value)} />

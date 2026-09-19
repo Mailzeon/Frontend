@@ -88,6 +88,21 @@ export default function AdminWithdrawalsPage() {
                       </button>
                     </p>
                   )}
+                  {r.upiVerifiedName && (
+                    <p className="text-gray-400">
+                      <span className="text-gray-500">Worker-provided name:</span>{' '}
+                      <span className="text-yellow-400 font-medium">{r.upiVerifiedName}</span>{' '}
+                      <span className="text-gray-600">— cross-check this against the name your UPI app shows before paying</span>
+                    </p>
+                  )}
+                  {r.upiQrCode && (
+                    <div className="pt-1">
+                      <span className="text-gray-500">QR code:</span>
+                      <a href={r.upiQrCode} target="_blank" rel="noopener noreferrer" className="block mt-1 w-fit">
+                        <img src={r.upiQrCode} alt="Worker's UPI QR" className="w-28 h-28 rounded-lg border border-white/10 object-cover hover:border-purple-500/50 transition-colors" />
+                      </a>
+                    </div>
+                  )}
                   {r.bankDetails?.accountNumber && <>
                     <p className="text-gray-400 flex items-center gap-1.5">
                       <span className="text-gray-500">Account:</span> {r.bankDetails.accountHolder} — {r.bankDetails.accountNumber}

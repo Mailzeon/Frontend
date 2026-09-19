@@ -128,7 +128,15 @@ export function ProfilePage({ showPaymentDetails = false }: ProfilePageProps) {
   const [changingPassword, setChangingPassword] = useState(false);
 
   // ── Worker payment details ────────────────────────────────────────────────
-  const [upiId, setUpiId] = useState('');
+  // BUG FIX: these used to always start blank (useState('')) regardless of
+  // what was actually already saved — a saved default silently "vanished"
+  // on every page refresh even though it was genuinely persisted server-
+  // side the whole time (see authStore.ts's comment on these same fields).
+  // Now correctly seeded from the logged-in user's own saved values.
+  const [upiId, setUpiId] = useState(user?.upiId ?? '');
+  const [upiVerifiedName, setUpiVerifiedName] = useState(user?.upiVerifiedName ?? '');
+  const [upiQrCode, setUpiQrCode] = useState(user?.upiQrCode ?? '');
+  const [uploadingPaymentQr, setUploadingPaymentQr] = useState(false);
   const [savingPayment, setSavingPayment] = useState(false);
 
   const saveProfile = async (e: React.FormEvent) => {
@@ -195,14 +203,45 @@ export function ProfilePage({ showPaymentDetails = false }: ProfilePageProps) {
     }
   };
 
+  // Reuses the SAME upload endpoint the withdrawal-request form itself
+  // uses (see withdrawal.routes.ts POST /withdrawals/upload-qr) — it's
+  // just a generic "worker uploads an image, gets a Cloudinary URL back"
+  // endpoint with no coupling to withdrawal-request creation specifically.
+  const handlePaymentQrUpload = async (file: File) => {
+    setUploadingPaymentQr(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      const { data } = await api.post('/withdrawals/upload-qr', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      if (data.success) {
+        setUpiQrCode(data.data.url);
+        toast.success('QR code uploaded — click Save to keep it as your default.');
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'QR upload failed.');
+    } finally {
+      setUploadingPaymentQr(false);
+    }
+  };
+
   const savePaymentDetails = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!upiId.trim()) { toast.error('Enter a UPI ID.'); return; }
     setSavingPayment(true);
     try {
-      const { data } = await api.put('/users/profile', { upiId: upiId.trim() });
+      const { data } = await api.put('/users/profile', {
+        upiId: upiId.trim(),
+        upiQrCode: upiQrCode || undefined,
+        upiVerifiedName: upiVerifiedName.trim() || undefined,
+      });
       if (data.success) {
-        toast.success('Default UPI ID saved. You can still enter a different one at withdrawal time.');
+        // Same fix as the main profile save above — without this, the
+        // in-memory store still had the OLD values until a full page
+        // reload, even though the save itself succeeded.
+        updateUser(data.data);
+        toast.success('Default payment details saved. You can still change them at withdrawal time.');
       }
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to save payment details.');
@@ -496,13 +535,42 @@ export function ProfilePage({ showPaymentDetails = false }: ProfilePageProps) {
             <div className="space-y-1.5">
               <Label>UPI ID</Label>
               <Input placeholder="yourname@okhdfcbank" value={upiId} onChange={e => setUpiId(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>UPI QR Code Screenshot</Label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={e => e.target.files?.[0] && handlePaymentQrUpload(e.target.files[0])}
+                className="block w-full text-xs text-gray-400 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-purple-600 file:text-white file:text-xs file:font-medium file:cursor-pointer cursor-pointer"
+              />
+              {uploadingPaymentQr && <p className="text-xs text-gray-500">Uploading…</p>}
+              {upiQrCode && !uploadingPaymentQr && (
+                <div className="flex items-center gap-2 mt-1">
+                  <img src={upiQrCode} alt="Your UPI QR" className="w-16 h-16 rounded-lg border border-white/10 object-cover" />
+                  <span className="text-xs text-green-400">Saved ✓</span>
+                </div>
+              )}
               <p className="text-xs text-gray-500">
-                Saving this here is optional — you can also enter a UPI ID directly when requesting a withdrawal.
+                Open your UPI app (GPay/PhonePe/Paytm), find your QR code, screenshot it, and upload it here.
               </p>
             </div>
+            <div className="space-y-1.5">
+              <Label>Name shown by your UPI app for this ID</Label>
+              <Input placeholder="Exact name as shown in your UPI app" value={upiVerifiedName} onChange={e => setUpiVerifiedName(e.target.value)} />
+              <p className="text-xs text-yellow-500/90 leading-relaxed">
+                Type the EXACT name your own UPI app shows for this UPI ID — not your Mailzeon account name.
+                If the name you save here doesn&apos;t exactly match what your UPI app shows, your withdrawal
+                will be rejected.
+              </p>
+            </div>
+            <p className="text-xs text-gray-500">
+              Saving these here is optional — you can also fill them in directly when requesting a
+              withdrawal, and you can always override any of them for a specific withdrawal.
+            </p>
             <div className="flex justify-end">
-              <Button type="submit" loading={savingPayment}>
-                <Save className="w-4 h-4 mr-2" /> Save UPI ID
+              <Button type="submit" loading={savingPayment} disabled={uploadingPaymentQr}>
+                <Save className="w-4 h-4 mr-2" /> Save Payment Details
               </Button>
             </div>
           </form>

@@ -292,15 +292,26 @@ export default function AdminUserDetailPage() {
         )}
       </div>
 
-      {/* Worker stats */}
-      {isWorker && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <StatCard title="Completed Orders" value={workerLevel?.completedOrders ?? 0} icon={ShoppingBag} color="purple" />
-          <StatCard title="Success Rate" value={`${workerLevel?.successRate ?? 100}%`} icon={Star} color="green" />
-          <StatCard title="Avg Rating" value={(workerLevel?.averageRating ?? 0).toFixed(1)} icon={Star} color="yellow" />
-          <StatCard title="Wallet Balance" value={formatCurrency(wallet?.balance ?? 0)} sub={`Pending: ${formatCurrency(wallet?.pendingBalance ?? 0)}`} icon={Wallet} color="blue" />
-        </div>
-      )}
+      {/* Stats — Wallet Balance now shows for BOTH roles (the backend's
+          GET /admin/users/:id/detail already fetches a wallet for anyone,
+          worker or customer — see its own comment there — customers get
+          wallet balances too, from refund credits and Cashfree wallet
+          recharges; this frontend gate just never caught up to that
+          fix, so a customer's wallet balance was silently invisible to
+          admin even though the data was already being sent). The other
+          three (completed orders, success rate, avg rating) come from
+          workerLevel, which genuinely doesn't exist for a customer, so
+          those stay worker-only. */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {isWorker && (
+          <>
+            <StatCard title="Completed Orders" value={workerLevel?.completedOrders ?? 0} icon={ShoppingBag} color="purple" />
+            <StatCard title="Success Rate" value={`${workerLevel?.successRate ?? 100}%`} icon={Star} color="green" />
+            <StatCard title="Avg Rating" value={(workerLevel?.averageRating ?? 0).toFixed(1)} icon={Star} color="yellow" />
+          </>
+        )}
+        <StatCard title="Wallet Balance" value={formatCurrency(wallet?.balance ?? 0)} sub={`Pending: ${formatCurrency(wallet?.pendingBalance ?? 0)}`} icon={Wallet} color="blue" />
+      </div>
 
       {/* Recent ratings */}
       {isWorker && recentRatings?.length > 0 && (

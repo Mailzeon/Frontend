@@ -10,6 +10,7 @@ import { trackSignup } from '@/lib/analytics';
 import {
   isTelegramMiniApp, getTelegramInitData, initTelegramWebApp, getTelegramUser,
 } from '@/lib/telegram';
+import { getDeviceModelHint } from '@/lib/fingerprint';
 
 type Stage =
   | 'checking' | 'not-telegram' | 'error' | 'logging-in'
@@ -38,10 +39,12 @@ function TelegramEntryInner() {
   const completeLogin = async (initData: string, role?: 'customer' | 'worker') => {
     setStage('logging-in');
     try {
+      const deviceModelHint = await getDeviceModelHint();
       const { data } = await api.post('/auth/telegram', {
         initData,
         ...(role ? { role } : {}),
         ...(referralCode ? { referralCode } : {}),
+        ...(deviceModelHint ? { deviceModelHint } : {}),
       });
       if (!data.success) { setErrorMsg(data.message); setStage('error'); return; }
       const { user, token } = data.data;
@@ -109,8 +112,10 @@ function TelegramEntryInner() {
 
     setStage('logging-in');
     try {
+      const deviceModelHint = await getDeviceModelHint();
       const { data } = await api.post('/auth/telegram/link', {
         initData, email: linkEmail.trim(), password: linkPassword,
+        ...(deviceModelHint ? { deviceModelHint } : {}),
       });
       if (!data.success) { setErrorMsg(data.message); setStage('error'); return; }
       const { user, token } = data.data;

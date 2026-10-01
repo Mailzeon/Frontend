@@ -11,7 +11,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { api } from '@/lib/api';
 import { initSocket } from '@/lib/socket';
-import { getDeviceId } from '@/lib/fingerprint';
+import { getDeviceId, getDeviceModelHint } from '@/lib/fingerprint';
 import { cn } from '@/lib/utils';
 import { trackSignup } from '@/lib/analytics';
 import { Footer } from '@/components/shared/Footer';
@@ -45,11 +45,12 @@ function RegisterContent() {
     if (password.length < 6) { toast.error('Password must be at least 6 characters.'); return; }
     setLoading(true);
     try {
-      const deviceId = await getDeviceId();
+      const [deviceId, deviceModelHint] = await Promise.all([getDeviceId(), getDeviceModelHint()]);
       const { data } = await api.post('/auth/register', {
         name: name.trim(), email: email.trim(), phone: phone.trim(), password, role,
         ...(referralCode ? { referralCode } : {}),
         ...(deviceId ? { deviceId } : {}),
+        ...(deviceModelHint ? { deviceModelHint } : {}),
       });
       if (!data.success) { toast.error(data.message); return; }
       const { user, token } = data.data;
@@ -89,10 +90,8 @@ function RegisterContent() {
       <div className="relative w-full max-w-md">
         <div className="text-center mb-8">
           <img src="/icon-192.png" alt="Mailzeon" className="w-14 h-14 rounded-2xl mx-auto mb-4 shadow-glow-purple" />
-          <h1 className="text-3xl font-bold text-white tracking-tight">Create your account</h1>
-          <p className="text-gray-400 mt-1 text-sm">
-            Get any email account created for you, starting at just ₹{minimumOrderAmount}
-          </p>
+          <h1 className="text-3xl font-bold text-white tracking-tight">Create account</h1>
+          <p className="text-gray-400 mt-1 text-sm">Join Mailzeon today</p>
         </div>
 
         <div className="glass-card p-8">

@@ -33,3 +33,33 @@ export function getDeviceId(): Promise<string> {
   }
   return cached;
 }
+
+/**
+ * Returns the REAL device model (e.g. "Pixel 7", "SM-G991B") via User-
+ * Agent Client Hints — the only way left to get this at all. Since
+ * Chrome 110 (2023), Chrome deliberately freezes the plain User-Agent
+ * header on Android to a generic placeholder ("Android 10; K") for every
+ * device, for privacy reasons — that's why the admin panel's "Network &
+ * Device" card kept showing the same generic label for almost every
+ * worker/customer regardless of what phone they actually used; there was
+ * never a real model in the header to parse in the first place. This is
+ * sent up alongside the device fingerprint at register/login (see
+ * app/(auth)/register/page.tsx, app/(auth)/login/page.tsx,
+ * app/telegram/page.tsx) purely to make that admin-facing label accurate
+ * — it has no anti-fraud role and isn't used for locking/matching
+ * accounts (that's still getDeviceId() above).
+ *
+ * Chromium-only (Chrome, Edge, Samsung Internet, Opera) — the
+ * `userAgentData` API doesn't exist at all in Firefox or Safari, so this
+ * resolves to null there and the backend just falls back to its old
+ * UA-string parsing for those visitors, same as before this existed.
+ */
+export function getDeviceModelHint(): Promise<string | null> {
+  if (typeof window === 'undefined') return Promise.resolve(null);
+  const uaData = (navigator as any).userAgentData;
+  if (!uaData?.getHighEntropyValues) return Promise.resolve(null);
+
+  return uaData.getHighEntropyValues(['model'])
+    .then((values: { model?: string }) => values.model?.trim() || null)
+    .catch(() => null);
+}

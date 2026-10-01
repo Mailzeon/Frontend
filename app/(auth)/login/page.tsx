@@ -10,7 +10,7 @@ import { toast } from '@/components/ui/toast';
 import { useAuthStore } from '@/store/authStore';
 import { api } from '@/lib/api';
 import { initSocket } from '@/lib/socket';
-import { getDeviceId } from '@/lib/fingerprint';
+import { getDeviceId, getDeviceModelHint } from '@/lib/fingerprint';
 import { Footer } from '@/components/shared/Footer';
 
 export default function LoginPage() {
@@ -26,8 +26,12 @@ export default function LoginPage() {
     if (!email.trim() || !password) { toast.error('Please fill in all fields.'); return; }
     setLoading(true);
     try {
-      const deviceId = await getDeviceId();
-      const { data } = await api.post('/auth/login', { email: email.trim(), password, ...(deviceId ? { deviceId } : {}) });
+      const [deviceId, deviceModelHint] = await Promise.all([getDeviceId(), getDeviceModelHint()]);
+      const { data } = await api.post('/auth/login', {
+        email: email.trim(), password,
+        ...(deviceId ? { deviceId } : {}),
+        ...(deviceModelHint ? { deviceModelHint } : {}),
+      });
       if (!data.success) { toast.error(data.message); return; }
       const { user, token } = data.data;
       setAuth(user, token);
@@ -52,8 +56,8 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="text-center mb-8">
           <img src="/icon-192.png" alt="Mailzeon" className="w-14 h-14 rounded-2xl mx-auto mb-4 shadow-glow-purple" />
-          <h1 className="text-3xl font-bold text-white tracking-tight">Sign in to Mailzeon</h1>
-          <p className="text-gray-400 mt-1 text-sm">Enter your details to continue to your account</p>
+          <h1 className="text-3xl font-bold text-white tracking-tight">Welcome back</h1>
+          <p className="text-gray-400 mt-1 text-sm">Sign in to your Mailzeon account</p>
         </div>
 
         {/* Card */}

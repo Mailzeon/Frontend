@@ -14,6 +14,7 @@ import { initSocket } from '@/lib/socket';
 import { getDeviceId, getDeviceModelHint } from '@/lib/fingerprint';
 import { cn } from '@/lib/utils';
 import { trackSignup } from '@/lib/analytics';
+import { useDetectedCallingCode, buildPhoneForSubmit, isValidLocalPhone } from '@/lib/countryCode';
 import { Footer } from '@/components/shared/Footer';
 
 function RegisterContent() {
@@ -28,6 +29,8 @@ function RegisterContent() {
   const [role, setRole]         = useState<'customer' | 'worker'>('customer');
   const [show, setShow]         = useState(false);
   const [loading, setLoading]   = useState(false);
+  const callingCode = useDetectedCallingCode();
+  const isIndia = callingCode === '91';
 
   // A ?ref= link can come from a worker OR a customer sharing their own
   // code, and (as of the cross-role referral change) it resolves against
@@ -41,13 +44,16 @@ function RegisterContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !email.trim() || !password) { toast.error('Please fill in all fields.'); return; }
-    if (!/^[6-9]\d{9}$/.test(phone.trim())) { toast.error('Enter a valid 10-digit Indian mobile number.'); return; }
+    if (!isValidLocalPhone(phone, callingCode)) {
+      toast.error(isIndia ? 'Enter a valid 10-digit Indian mobile number.' : 'Enter a valid mobile number.');
+      return;
+    }
     if (password.length < 6) { toast.error('Password must be at least 6 characters.'); return; }
     setLoading(true);
     try {
       const [deviceId, deviceModelHint] = await Promise.all([getDeviceId(), getDeviceModelHint()]);
       const { data } = await api.post('/auth/register', {
-        name: name.trim(), email: email.trim(), phone: phone.trim(), password, role,
+        name: name.trim(), email: email.trim(), phone: buildPhoneForSubmit(phone, callingCode), password, role,
         ...(referralCode ? { referralCode } : {}),
         ...(deviceId ? { deviceId } : {}),
         ...(deviceModelHint ? { deviceModelHint } : {}),
@@ -124,14 +130,23 @@ function RegisterContent() {
 
             <div className="space-y-1.5">
               <Label htmlFor="phone">Phone number</Label>
-              <Input
-                id="phone"
-                type="tel"
-                placeholder="10-digit mobile number"
-                value={phone}
-                onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                maxLength={10}
-              />
+              <div className="flex gap-2">
+                <div
+                  aria-label={`Country calling code +${callingCode}`}
+                  className="flex items-center px-3 rounded-lg border border-white/10 bg-white/5 text-sm text-gray-300 select-none shrink-0"
+                >
+                  +{callingCode}
+                </div>
+                <Input
+                  id="phone"
+                  type="tel"
+                  inputMode="numeric"
+                  placeholder={isIndia ? '10-digit mobile number' : 'Mobile number'}
+                  value={phone}
+                  onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, isIndia ? 10 : 15 - callingCode.length))}
+                  maxLength={isIndia ? 10 : 15 - callingCode.length}
+                />
+              </div>
               <p className="text-xs text-gray-500">
                 A real, active mobile number is required — used to verify your account and for payments.
               </p>

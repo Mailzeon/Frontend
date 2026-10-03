@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { toast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
+import { useDetectedCallingCode, buildPhoneForSubmit, isValidLocalPhone } from '@/lib/countryCode';
 import { isTelegramMiniApp, supportsTelegramContactRequest, requestTelegramPhoneNumber } from '@/lib/telegram';
 import {
   isPushSupported, getExistingSubscription,
@@ -75,6 +76,12 @@ export function ProfilePage({ showPaymentDetails = false }: ProfilePageProps) {
   // NEW: phone — required by Cashfree before a customer can place an order.
   // Editable here so it can be set up-front instead of only at checkout time.
   const [phone, setPhone]         = useState(user?.phone ?? '');
+  const detectedCode = useDetectedCallingCode();
+  // A "+"-prefixed value (a foreign number already saved, or filled in from
+  // Telegram) is already complete E.164 — no badge, sent as-is. Otherwise the
+  // person types only the local digits and the detected badge is prepended.
+  const phoneIsFull = phone.startsWith('+');
+  const phoneToSend = phoneIsFull ? phone.trim() : buildPhoneForSubmit(phone, detectedCode);
   // Only ever shown for accounts with a real Telegram identity, actually
   // running inside the Telegram Mini App WebView right now, AND on a
   // platform (Android/iOS) where Telegram actually supports the native
@@ -103,11 +110,13 @@ export function ProfilePage({ showPaymentDetails = false }: ProfilePageProps) {
         // out the specific India-IP-with-a-foreign-number pattern).
         try {
           const { data } = await api.post('/users/me/check-telegram-phone-country', { phoneNumber: raw });
-          if (data.accepted) {
-            setPhone(data.phoneNumber);
+          // sendSuccess wraps the payload under `data.data`.
+          const result = data.data ?? data;
+          if (result.accepted) {
+            setPhone(result.phoneNumber);
             toast.success('Number filled in from Telegram — tap Save Changes to verify it.');
-          } else if (data.message) {
-            toast.error(data.message);
+          } else if (result.message) {
+            toast.error(result.message);
           }
         } catch {
           toast.error("That doesn't look like an Indian number — please enter your Indian mobile number manually to continue.");
@@ -146,8 +155,8 @@ export function ProfilePage({ showPaymentDetails = false }: ProfilePageProps) {
       toast.error('Enter a valid email address.');
       return;
     }
-    if (phone.trim() && !/^[6-9]\d{9}$/.test(phone.trim())) {
-      toast.error('Enter a valid 10-digit Indian mobile number.');
+    if (phone.trim() && !phoneIsFull && !isValidLocalPhone(phone, detectedCode)) {
+      toast.error(detectedCode === '91' ? 'Enter a valid 10-digit Indian mobile number.' : 'Enter a valid mobile number.');
       return;
     }
     setSavingProfile(true);
@@ -155,7 +164,7 @@ export function ProfilePage({ showPaymentDetails = false }: ProfilePageProps) {
       const { data } = await api.put('/users/profile', {
         name: name.trim(),
         ...(email.trim().toLowerCase() !== user?.email ? { email: email.trim() } : {}),
-        ...(phone.trim() ? { phone: phone.trim() } : {}),
+        ...(phone.trim() ? { phone: phoneToSend } : {}),
       });
       if (data.success) {
         // Use the backend's returned user object directly rather than a
@@ -164,7 +173,7 @@ export function ProfilePage({ showPaymentDetails = false }: ProfilePageProps) {
         // building it by hand here would just guess wrong.
         updateUser(data.data);
         const emailChanged = email.trim().toLowerCase() !== user?.email;
-        const phoneChanged = phone.trim() && phone.trim() !== user?.phone;
+        const phoneChanged = phone.trim() && phoneToSend !== user?.phone;
         toast.success(
           emailChanged && phoneChanged ? 'Email and phone verified — profile updated!'
           : emailChanged ? 'Email verified and profile updated!'
@@ -453,26 +462,37 @@ export function ProfilePage({ showPaymentDetails = false }: ProfilePageProps) {
                 </span>
               )}
             </div>
-            <Input
-              type="tel"
-              placeholder="10-digit mobile number"
-              value={phone}
-              onChange={e => {
-                const v = e.target.value;
-                // A "+"-prefixed value only ever gets INTO this field via
-                // the "Fill in from Telegram" button below (a foreign
-                // number matched against the request's own IP — see
-                // user.routes.ts /me/check-telegram-phone-country) — never
-                // by typing, since a real phone keypad/keyboard wouldn't
-                // produce Telegram's exact E.164 string by hand anyway.
-                // Once it's there, this just needs to not mangle it if the
-                // person clicks back into the field — everyone else typing
-                // a plain Indian number keeps the original strip-to-10-
-                // digits behavior untouched.
-                setPhone(v.startsWith('+') ? v.replace(/(?!^\+)\D/g, '').slice(0, 16) : v.replace(/\D/g, '').slice(0, 10));
-              }}
-              maxLength={phone.startsWith('+') ? 16 : 10}
-            />
+            <div className="flex gap-2">
+              {!phoneIsFull && (
+                <div
+                  aria-label={`Country calling code +${detectedCode}`}
+                  className="flex items-center px-3 rounded-lg border border-white/10 bg-white/5 text-sm text-gray-300 select-none shrink-0"
+                >
+                  +{detectedCode}
+                </div>
+              )}
+              <Input
+                type="tel"
+                inputMode={phoneIsFull ? 'tel' : 'numeric'}
+                placeholder={detectedCode === '91' ? '10-digit mobile number' : 'Mobile number'}
+                value={phone}
+                onChange={e => {
+                  const v = e.target.value;
+                  // A "+"-prefixed value only ever gets INTO this field via
+                  // the saved number or the "Fill in from Telegram" button
+                  // (see user.routes.ts /me/check-telegram-phone-country) —
+                  // keep it intact if the person clicks back into the field.
+                  // Everyone else types local digits only; the badge adds
+                  // the country code.
+                  setPhone(
+                    v.startsWith('+')
+                      ? v.replace(/(?!^\+)\D/g, '').slice(0, 16)
+                      : v.replace(/\D/g, '').slice(0, detectedCode === '91' ? 10 : 15 - detectedCode.length)
+                  );
+                }}
+                maxLength={phoneIsFull ? 16 : detectedCode === '91' ? 10 : 15 - detectedCode.length}
+              />
+            </div>
             {showTelegramPhoneButton && (
               <button
                 type="button"
